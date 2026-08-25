@@ -1,0 +1,14 @@
+client: FALABELLA_RETAIL
+jurisdiction: CL
+insurance:
+  mode: policy_rate
+  # Inferred from PRORRATEO MASTER and pending confirmation with the agency.
+  coverage_pct: 1.15
+  coverage_pct_provenance: inferred
+  policy_rate: 0.000462
+  effective_from: 2026-01-01
+  note: "Annual policy; fixed rate for every shipment and renewed yearly."
+allocation:
+  basis: invoice_value
+default_incoterm: FOB
+transport_document: direct_bl

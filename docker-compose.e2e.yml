@@ -1,0 +1,8 @@
+services:
+  api:
+    environment:
+      EXTRACTION_BACKEND: local
+
+  worker:
+    environment:
+      EXTRACTION_BACKEND: local

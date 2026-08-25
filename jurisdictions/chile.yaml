@@ -1,0 +1,79 @@
+# Jurisdiction configuration — Chile
+# All rates MUST be verified against Servicio Nacional de Aduanas before production use.
+code: CL
+name: Chile
+currency: CLP
+declaration:
+  code: DIN
+  name: Declaración de Ingreso
+  authority: Servicio Nacional de Aduanas
+  adapter: adapters.cl_din
+
+valuation:
+  # Which allocated cost components enter the dutiable value.
+  # Chile values on CIF. A FOB-valuation country would list only [fob].
+  base_name: CIF
+  components: [fob, freight, insurance]
+
+allocation:
+  # How allocable costs are spread across the invoices on one B/L.
+  basis: invoice_value          # invoice_value | gross_weight | volume
+  residual_to: largest_line     # where the rounding remainder lands
+  cost_lines:
+    - {code: freight,   label: Flete marítimo,  dutiable: true,  source: bill_of_lading}
+    - {code: insurance, label: Prima de seguro, dutiable: true,  source: computed}
+    - {code: storage,   label: Almacenaje,      dutiable: false, source: manual}
+    - {code: agency_fee,label: Honorarios,      dutiable: false, source: manual}
+    - {code: inland,    label: Transporte interno, dutiable: false, source: manual}
+
+incoterm_rules:
+  FOB: {deduct: []}
+  FCA: {deduct: []}
+  EXW: {deduct: []}
+  CFR: {deduct: [freight]}
+  CPT: {deduct: [freight]}
+  CIF: {deduct: [freight, insurance]}
+  CIP: {deduct: [freight, insurance]}
+  DAP: {deduct: [freight, insurance]}
+  DDP: {deduct: [freight, insurance, duties]}
+
+insurance_theoretical:
+  rate: null                    # Pending agency confirmation for uninsured shipments.
+
+fx:
+  quote_currency: USD
+  source: dolar_aduanero
+  granularity: monthly
+  date_rule: din_acceptance_month
+  rounding: {dp: 0, mode: half_up}   # CLP has no minor unit
+
+levies:
+  - code: AD_VALOREM
+    label: Derecho ad valorem
+    base: customs_value
+    rate:
+      type: hs_lookup
+      default: 0.06             # Chile applies a uniform general rate
+      preference_capable: true  # can be reduced to 0 by a valid certificate of origin
+    rounding: {dp: 2, mode: half_up}
+    recoverable: false
+  - code: IVA
+    label: Impuesto al Valor Agregado
+    base: customs_value + AD_VALOREM
+    rate: {type: flat, value: 0.19}
+    rounding: {dp: 2, mode: half_up}
+    recoverable: true
+
+tolerances:
+  weight_pct: 0.02
+  money_abs: 0.01
+
+trade_agreements:
+  - code: CL_CN
+    label: TLC Chile–China
+    aliases: [CHINA–CHILE FREE TRADE AGREEMENT, CHINA-CHILE FREE TRADE AGREEMENT]
+    form: Form F
+    origin_countries: [CN]
+    preferential_rate: 0.00
+  - {code: CL_US, label: TLC Chile–EEUU, form: Certification, origin_countries: [US], preferential_rate: 0.00}
+  - {code: CL_EU, label: Acuerdo Chile–UE, form: EUR.1, origin_countries: [EU], preferential_rate: 0.00}

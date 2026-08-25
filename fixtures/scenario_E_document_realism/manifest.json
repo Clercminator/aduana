@@ -1,0 +1,112 @@
+{
+  "purpose": "document-format and OCR-routing realism",
+  "distinct_supplier_templates": 12,
+  "invoices": [
+    {
+      "supplier": "Ningbo Harbor Home Co.",
+      "template": 1,
+      "file": "supplier_01_invoice_vector.pdf",
+      "language": "English",
+      "stamp_overlay": true,
+      "image_only_phone_photo": false
+    },
+    {
+      "supplier": "Shenzhen Brightpath Ltd.",
+      "template": 2,
+      "file": "supplier_02_invoice_vector.pdf",
+      "language": "English",
+      "stamp_overlay": true,
+      "image_only_phone_photo": false
+    },
+    {
+      "supplier": "Guangzhou Mesa Trading",
+      "template": 3,
+      "file": "supplier_03_invoice_vector.pdf",
+      "language": "mixed English/Spanish",
+      "stamp_overlay": true,
+      "image_only_phone_photo": false
+    },
+    {
+      "supplier": "Suzhou Living Works",
+      "template": 4,
+      "file": "supplier_04_invoice_vector.pdf",
+      "language": "English",
+      "stamp_overlay": true,
+      "image_only_phone_photo": false
+    },
+    {
+      "supplier": "Hangzhou Northstar Export",
+      "template": 5,
+      "file": "supplier_05_invoice_vector.pdf",
+      "language": "English",
+      "stamp_overlay": true,
+      "image_only_phone_photo": false
+    },
+    {
+      "supplier": "Qingdao Ceramics Union",
+      "template": 6,
+      "file": "supplier_06_invoice_vector.pdf",
+      "language": "mixed English/Spanish",
+      "stamp_overlay": true,
+      "image_only_phone_photo": false
+    },
+    {
+      "supplier": "Xiamen Ocean Housewares",
+      "template": 7,
+      "file": "supplier_07_invoice_vector.pdf",
+      "language": "English",
+      "stamp_overlay": true,
+      "image_only_phone_photo": false
+    },
+    {
+      "supplier": "Foshan Lumen Factory",
+      "template": 8,
+      "file": "supplier_08_invoice_vector.pdf",
+      "language": "English",
+      "stamp_overlay": true,
+      "image_only_phone_photo": false
+    },
+    {
+      "supplier": "Dongguan Cable Systems",
+      "template": 9,
+      "file": "supplier_09_invoice_vector.pdf",
+      "language": "mixed English/Spanish",
+      "stamp_overlay": true,
+      "image_only_phone_photo": false
+    },
+    {
+      "supplier": "Tianjin Retail Supply",
+      "template": 10,
+      "file": "supplier_10_invoice_vector.pdf",
+      "language": "English",
+      "stamp_overlay": true,
+      "image_only_phone_photo": false
+    },
+    {
+      "supplier": "Wuxi Everyday Goods",
+      "template": 11,
+      "file": "supplier_11_invoice_phone_photo.pdf",
+      "language": "English",
+      "stamp_overlay": true,
+      "image_only_phone_photo": true
+    },
+    {
+      "supplier": "Yiwu Global Merchants",
+      "template": 12,
+      "file": "supplier_12_invoice_phone_photo.pdf",
+      "language": "mixed English/Spanish",
+      "stamp_overlay": true,
+      "image_only_phone_photo": true
+    }
+  ],
+  "stamped_origin_certificates": [
+    "origin_certificate_01_stamped.pdf",
+    "origin_certificate_02_stamped.pdf"
+  ],
+  "image_only_phone_photos": 2,
+  "notes": [
+    "All identities and transactions are synthetic.",
+    "Phone-photo PDFs contain no text layer and are expected to route to OCR.",
+    "This pack exercises document diversity; it is not an extraction accuracy benchmark."
+  ]
+}

@@ -1,0 +1,71 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: aduanera
+      POSTGRES_USER: aduanera
+      POSTGRES_PASSWORD: aduanera
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aduanera"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  api:
+    build: .
+    env_file:
+      - .env.example
+      - path: .env
+        required: false
+    depends_on:
+      db:
+        condition: service_healthy
+    command: sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    volumes:
+      - document_data:/data/documents
+      - artifact_data:/data/artifacts
+      - ./fixtures:/workspace/fixtures:ro
+      - ./jurisdictions:/workspace/jurisdictions:ro
+      - ./clients:/workspace/clients:ro
+    ports:
+      - "8000:8000"
+
+  worker:
+    build: .
+    env_file:
+      - .env.example
+      - path: .env
+        required: false
+    depends_on:
+      db:
+        condition: service_healthy
+      api:
+        condition: service_healthy
+    command: python -m app.jobs.worker
+    volumes:
+      - document_data:/data/documents
+      - artifact_data:/data/artifacts
+      - ./fixtures:/workspace/fixtures:ro
+      - ./jurisdictions:/workspace/jurisdictions:ro
+      - ./clients:/workspace/clients:ro
+
+  web:
+    build: ./web
+    depends_on:
+      - api
+    ports:
+      - "5173:5173"
+
+volumes:
+  postgres_data:
+  document_data:
+  artifact_data:

@@ -1,0 +1,16 @@
+{
+  "scenario": "C",
+  "purpose": "high-volume parallel-processing demonstration",
+  "uploaded_pdfs": 45,
+  "commercial_invoices": 40,
+  "despacho": "700613",
+  "reference": "54415CLFA/26J28-9",
+  "bl_number": "OLS-SHA-2602288",
+  "total_fob_usd": "491220.00",
+  "freight_usd": "9850.00",
+  "insurance_premium_usd": "266.22",
+  "sum_insured_usd": "576230.50",
+  "total_cartons": 2220,
+  "gross_weight_kg": "27750.0",
+  "expected_rule_failures": 0
+}

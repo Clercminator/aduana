@@ -1,0 +1,22 @@
+{
+  "scenario_A_clean": {
+    "00_INSTRUCCION_DESPACHO_700611.pdf": {"doc_type":"dispatch_instruction","page":1,"fields":{"despacho_no":"700611","referencia":"54415CLFA/26J14-1","bl_number":"OLS-SHA-2601147","freight_amount":"3200.00","freight_currency":"USD"},"source_text":"N° Despacho 700611"},
+    "01_BILL_OF_LADING_OLS-SHA-2601147.pdf": {"doc_type":"bill_of_lading","page":1,"fields":{"bl_number":"OLS-SHA-2601147","gross_weight_kg":"14820.0","package_count":"962","container_number":"OLSU4471902","freight_amount":"3200.00","declared_value_total":"55000.00"},"source_text":"TOTAL DECLARED VALUE THIS B/L USD 55,000.00"},
+    "02_1_COMMERCIAL_INVOICE_BN26010441.pdf": {"doc_type":"commercial_invoice","page":1,"fields":{"invoice_number":"BN26010441","invoice_total":"18600.00","hs_code":"6302.60","quantity":"6000","unit_price":"3.10"},"source_text":"TOTAL FOB SHANGHAI USD 18,600.00"},
+    "02_2_COMMERCIAL_INVOICE_BN26010442.pdf": {"doc_type":"commercial_invoice","page":1,"fields":{"invoice_number":"BN26010442","invoice_total":"24400.00","hs_code":"6912.00","quantity":"800","unit_price":"30.50"},"source_text":"TOTAL FOB SHANGHAI USD 24,400.00"},
+    "02_3_COMMERCIAL_INVOICE_BN26010443.pdf": {"doc_type":"commercial_invoice","page":1,"fields":{"invoice_number":"BN26010443","invoice_total":"12000.00","hs_code":"7010.90","quantity":"2400","unit_price":"5.00"},"source_text":"TOTAL FOB SHANGHAI USD 12,000.00"},
+    "03_PACKING_LIST_OLS-SHA-2601147.pdf": {"doc_type":"packing_list","page":1,"fields":{"gross_weight_kg":"14820.0","package_count":"962","container_number":"OLSU4471902"},"source_text":"TOTAL 962 14,820.0 13,610.0"},
+    "04_CERTIFICADO_SEGURO_MC-2026-04417.pdf": {"doc_type":"insurance_certificate","page":1,"fields":{"certificate_number":"MC-2026-04417","sum_insured":"66930.00","premium":"30.92","currency":"USD"},"source_text":"Prima USD 30.92"},
+    "05_CERTIFICATE_OF_ORIGIN_C26CL0114772.pdf": {"doc_type":"certificate_of_origin","page":1,"fields":{"certificate_number":"C26CL0114772","issue_date":"2026-06-11","container_number":"OLSU4471902","hs_codes":["6302.60","6912.00","7010.90"]},"source_text":"Place and date: 2026-06-11"}
+  },
+  "scenario_B_exceptions": {
+    "00_INSTRUCCION_DESPACHO_700612.pdf": {"doc_type":"dispatch_instruction","page":1,"fields":{"despacho_no":"700612","referencia":"54415CLFA/26J21-3","bl_number":"OLS-NGB-2601583","freight_amount":"4150.00","freight_currency":"USD"},"source_text":"N° Despacho 700612"},
+    "01_BILL_OF_LADING_OLS-NGB-2601583.pdf": {"doc_type":"bill_of_lading","page":1,"fields":{"bl_number":"OLS-NGB-2601583","gross_weight_kg":"9208.0","package_count":"741","container_number":"OLSU5583114","invoice_numbers":["BN26010512","BN26010513","BN26010515"],"declared_value_total":"64370.00"},"source_text":"TOTAL DECLARED VALUE THIS B/L USD 64,370.00"},
+    "02_1_COMMERCIAL_INVOICE_BN26010512.pdf": {"doc_type":"commercial_invoice","page":1,"fields":{"invoice_number":"BN26010512","invoice_total":"21450.00","consignee_name":"FALABELLA RETAIL SpA","hs_code":"9405.20"},"source_text":"TOTAL FOB NINGBO USD 21,450.00"},
+    "02_2_COMMERCIAL_INVOICE_BN26010513.pdf": {"doc_type":"commercial_invoice","page":1,"fields":{"invoice_number":"BN26010513","invoice_total":"33800.00","quantity":"2600","unit_price":"12.50","hs_code":"8518.22"},"source_text":"2,600 PCS 12.50 33,800.00"},
+    "02_3_COMMERCIAL_INVOICE_BN26010514.pdf": {"doc_type":"commercial_invoice","page":1,"fields":{"invoice_number":"BN26010514","invoice_total":"9120.00","hs_code":"8544.42"},"source_text":"TOTAL FOB NINGBO USD 9,120.00"},
+    "03_PACKING_LIST_OLS-NGB-2601583.pdf": {"doc_type":"packing_list","page":1,"fields":{"gross_weight_kg":"9847.0","package_count":"741","container_number":"OLSU5583114"},"source_text":"TOTAL 741 9,847.0 8,905.0"},
+    "04_CERTIFICADO_SEGURO_MC-2026-05108.pdf": {"doc_type":"insurance_certificate","page":1,"fields":{"certificate_number":"MC-2026-05108","sum_insured":"68000.00","premium":"31.42","currency":"USD"},"source_text":"Prima USD 31.42"},
+    "05_CERTIFICATE_OF_ORIGIN_C26CL0119043.pdf": {"doc_type":"certificate_of_origin","page":1,"fields":{"certificate_number":"C26CL0119043","issue_date":"2026-07-28","is_retrospective":false,"hs_codes":["9405.20","8518.22"]},"source_text":"2. PRODUCER'S NAME AND ADDRESS 5. REMARKS"}
+  }
+}

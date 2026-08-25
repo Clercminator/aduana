@@ -1,0 +1,9 @@
+{
+  "scenario": "D",
+  "purpose": "CIF normalization equals an economically equivalent FOB invoice",
+  "invoice_total_cif_usd": "13215.00",
+  "included_freight_usd": "1200.00",
+  "included_insurance_usd": "15.00",
+  "expected_normalized_fob_usd": "12000.00",
+  "expected_policy_premium_usd": "7.01"
+}

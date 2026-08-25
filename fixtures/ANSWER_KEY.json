@@ -1,0 +1,4207 @@
+{
+  "A": {
+    "scenario": "CLEAN - straight-through, 3 invoices / 3 DIN",
+    "despacho": "700611",
+    "referencia": "54415CLFA/26J14-1",
+    "bl": "OLS-SHA-2601147",
+    "uploaded_files": 8,
+    "commercial_invoices": 3,
+    "din_count": 3,
+    "checks": [
+      {
+        "id": "EXC-01",
+        "severity": "CRITICAL",
+        "status": "PASS",
+        "title": "Peso bruto packing list vs B/L",
+        "detail": "Packing list 14,820.0 kg vs B/L 14,820.0 kg; diferencia 0.0 kg (0.0%), tolerancia 2%",
+        "suggested_action": null,
+        "financial_impact": null,
+        "source_refs": [
+          {
+            "document": "packing_list",
+            "field": "gross_weight_kg"
+          },
+          {
+            "document": "bill_of_lading",
+            "field": "gross_weight_kg"
+          }
+        ]
+      },
+      {
+        "id": "EXC-02",
+        "severity": "CRITICAL",
+        "status": "PASS",
+        "title": "Facturas citadas en B/L",
+        "detail": "Todas las facturas coinciden",
+        "suggested_action": null,
+        "financial_impact": null,
+        "source_refs": [
+          {
+            "document": "bill_of_lading",
+            "field": "invoice_numbers_cited"
+          },
+          {
+            "document": "commercial_invoice",
+            "field": "invoice_number"
+          }
+        ]
+      },
+      {
+        "id": "EXC-03",
+        "severity": "CRITICAL",
+        "status": "PASS",
+        "title": "Cobertura de códigos HS por certificado de origen",
+        "detail": "Todos los códigos HS están cubiertos",
+        "suggested_action": null,
+        "financial_impact": null,
+        "source_refs": [
+          {
+            "document": "commercial_invoice",
+            "field": "lines[].hs_code"
+          },
+          {
+            "document": "certificate_of_origin",
+            "field": "items[].hs_code"
+          }
+        ]
+      },
+      {
+        "id": "EXC-04",
+        "severity": "WARNING",
+        "status": "PASS",
+        "title": "Suma asegurada mínima",
+        "detail": "Asegurado USD 66,930.00; requerido USD 66,930.00; faltante USD 0.00",
+        "suggested_action": null,
+        "financial_impact": null,
+        "source_refs": [
+          {
+            "document": "insurance_certificate",
+            "field": "sum_insured"
+          },
+          {
+            "document": "bill_of_lading",
+            "field": "freight_amount"
+          }
+        ]
+      },
+      {
+        "id": "EXC-05",
+        "severity": "WARNING",
+        "status": "PASS",
+        "title": "Aritmética de facturas",
+        "detail": "Todas las facturas cuadran",
+        "suggested_action": null,
+        "financial_impact": null,
+        "source_refs": [
+          {
+            "document": "commercial_invoice",
+            "field": "lines[].quantity/unit_price/line_total"
+          }
+        ]
+      },
+      {
+        "id": "EXC-06",
+        "severity": "WARNING",
+        "status": "PASS",
+        "title": "Consignatario consistente",
+        "detail": "B/L: FALABELLA RETAIL S.A.; BN26010441: FALABELLA RETAIL S.A.; BN26010442: FALABELLA RETAIL S.A.; BN26010443: FALABELLA RETAIL S.A.; seguro: FALABELLA RETAIL S.A.; CoO: FALABELLA RETAIL S.A.",
+        "suggested_action": null,
+        "financial_impact": null,
+        "source_refs": [
+          {
+            "document": "B/L",
+            "field": "consignee_name",
+            "value": "FALABELLA RETAIL S.A."
+          },
+          {
+            "document": "BN26010441",
+            "field": "consignee_name",
+            "value": "FALABELLA RETAIL S.A."
+          },
+          {
+            "document": "BN26010442",
+            "field": "consignee_name",
+            "value": "FALABELLA RETAIL S.A."
+          },
+          {
+            "document": "BN26010443",
+            "field": "consignee_name",
+            "value": "FALABELLA RETAIL S.A."
+          },
+          {
+            "document": "seguro",
+            "field": "consignee_name",
+            "value": "FALABELLA RETAIL S.A."
+          },
+          {
+            "document": "CoO",
+            "field": "consignee_name",
+            "value": "FALABELLA RETAIL S.A."
+          }
+        ]
+      },
+      {
+        "id": "EXC-07",
+        "severity": "WARNING",
+        "status": "PASS",
+        "title": "Fecha del certificado de origen",
+        "detail": "Certificado 2026-06-11; embarque 2026-06-14; retrospectivo: False",
+        "suggested_action": null,
+        "financial_impact": null,
+        "source_refs": [
+          {
+            "document": "certificate_of_origin",
+            "field": "issue_date/is_retrospective"
+          },
+          {
+            "document": "bill_of_lading",
+            "field": "shipped_on_board_date"
+          }
+        ]
+      },
+      {
+        "id": "EXC-08",
+        "severity": "WARNING",
+        "status": "PASS",
+        "title": "Contenedor consistente",
+        "detail": "B/L: OLSU4471902; packing list: OLSU4471902; CoO: OLSU4471902",
+        "suggested_action": null,
+        "financial_impact": null,
+        "source_refs": [
+          {
+            "document": "B/L",
+            "field": "container_number"
+          },
+          {
+            "document": "packing list",
+            "field": "container_number"
+          },
+          {
+            "document": "CoO",
+            "field": "container_number"
+          }
+        ]
+      },
+      {
+        "id": "EXC-09",
+        "severity": "WARNING",
+        "status": "PASS",
+        "title": "Moneda única de facturas",
+        "detail": "Monedas: USD",
+        "suggested_action": null,
+        "financial_impact": null,
+        "source_refs": []
+      },
+      {
+        "id": "CHK-10",
+        "severity": "INFO",
+        "status": "PASS",
+        "title": "Cantidad de bultos",
+        "detail": "Packing list 962; B/L 962",
+        "suggested_action": null,
+        "financial_impact": null,
+        "source_refs": []
+      },
+      {
+        "id": "CHK-11",
+        "severity": "INFO",
+        "status": "PASS",
+        "title": "Flete B/L vs instrucción",
+        "detail": "B/L USD 3,200.00; instrucción USD 3,200.00",
+        "suggested_action": null,
+        "financial_impact": null,
+        "source_refs": []
+      },
+      {
+        "id": "EXC-12",
+        "severity": "CRITICAL",
+        "status": "PASS",
+        "title": "Valor total de facturas vs B/L",
+        "detail": "Facturas USD 55,000.00; B/L USD 55,000.00; diferencia USD 0.00",
+        "suggested_action": null,
+        "financial_impact": null,
+        "source_refs": [
+          {
+            "document": "commercial_invoice",
+            "field": "invoice_total"
+          },
+          {
+            "document": "bill_of_lading",
+            "field": "declared_value_total"
+          }
+        ]
+      }
+    ],
+    "prorrateo": [
+      {
+        "invoice": "BN26010441",
+        "description": "100% Cotton Bath Towels 70x140cm, 450 GSM, assorted colours",
+        "hs_code": "6302.60",
+        "quantity": "6000",
+        "uom": "PCS",
+        "invoice_total": "18600.00",
+        "fob": "18600.00",
+        "share": "0.3381818181818181818181818182",
+        "allocations": {
+          "freight": "1082.18",
+          "insurance": "10.46"
+        },
+        "residual_codes": [],
+        "customs_value": "19692.64",
+        "duty_rate": "0.0",
+        "duty_reason": "Preferencia TLC Chile–China, certificado C26CL0114772",
+        "levies": [
+          {
+            "code": "AD_VALOREM",
+            "label": "Derecho ad valorem",
+            "base_expression": "customs_value",
+            "base_amount": {
+              "amount": "19692.64",
+              "currency": "USD"
+            },
+            "rate": "0.0",
+            "amount": {
+              "amount": "0.00",
+              "currency": "USD"
+            },
+            "recoverable": false
+          },
+          {
+            "code": "IVA",
+            "label": "Impuesto al Valor Agregado",
+            "base_expression": "customs_value + AD_VALOREM",
+            "base_amount": {
+              "amount": "19692.64",
+              "currency": "USD"
+            },
+            "rate": "0.19",
+            "amount": {
+              "amount": "3741.60",
+              "currency": "USD"
+            },
+            "recoverable": true
+          }
+        ],
+        "levy_total": "3741.60",
+        "landed_cost": "19692.64",
+        "declaration_view": {
+          "payable_levies": "3741.60"
+        },
+        "cost_view": {
+          "capitalized_levies": "0.00",
+          "recoverable_levies_excluded": "3741.60",
+          "landed_cost": "19692.64"
+        }
+      },
+      {
+        "invoice": "BN26010442",
+        "description": "Ceramic Dinner Set 16-piece, glazed stoneware, white",
+        "hs_code": "6912.00",
+        "quantity": "800",
+        "uom": "SET",
+        "invoice_total": "24400.00",
+        "fob": "24400.00",
+        "share": "0.4436363636363636363636363636",
+        "allocations": {
+          "freight": "1419.64",
+          "insurance": "13.72"
+        },
+        "residual_codes": [],
+        "customs_value": "25833.36",
+        "duty_rate": "0.0",
+        "duty_reason": "Preferencia TLC Chile–China, certificado C26CL0114772",
+        "levies": [
+          {
+            "code": "AD_VALOREM",
+            "label": "Derecho ad valorem",
+            "base_expression": "customs_value",
+            "base_amount": {
+              "amount": "25833.36",
+              "currency": "USD"
+            },
+            "rate": "0.0",
+            "amount": {
+              "amount": "0.00",
+              "currency": "USD"
+            },
+            "recoverable": false
+          },
+          {
+            "code": "IVA",
+            "label": "Impuesto al Valor Agregado",
+            "base_expression": "customs_value + AD_VALOREM",
+            "base_amount": {
+              "amount": "25833.36",
+              "currency": "USD"
+            },
+            "rate": "0.19",
+            "amount": {
+              "amount": "4908.34",
+              "currency": "USD"
+            },
+            "recoverable": true
+          }
+        ],
+        "levy_total": "4908.34",
+        "landed_cost": "25833.36",
+        "declaration_view": {
+          "payable_levies": "4908.34"
+        },
+        "cost_view": {
+          "capitalized_levies": "0.00",
+          "recoverable_levies_excluded": "4908.34",
+          "landed_cost": "25833.36"
+        }
+      },
+      {
+        "invoice": "BN26010443",
+        "description": "Glass Storage Jar 1.2L with bamboo lid",
+        "hs_code": "7010.90",
+        "quantity": "2400",
+        "uom": "PCS",
+        "invoice_total": "12000.00",
+        "fob": "12000.00",
+        "share": "0.2181818181818181818181818182",
+        "allocations": {
+          "freight": "698.18",
+          "insurance": "6.75"
+        },
+        "residual_codes": [],
+        "customs_value": "12704.93",
+        "duty_rate": "0.0",
+        "duty_reason": "Preferencia TLC Chile–China, certificado C26CL0114772",
+        "levies": [
+          {
+            "code": "AD_VALOREM",
+            "label": "Derecho ad valorem",
+            "base_expression": "customs_value",
+            "base_amount": {
+              "amount": "12704.93",
+              "currency": "USD"
+            },
+            "rate": "0.0",
+            "amount": {
+              "amount": "0.00",
+              "currency": "USD"
+            },
+            "recoverable": false
+          },
+          {
+            "code": "IVA",
+            "label": "Impuesto al Valor Agregado",
+            "base_expression": "customs_value + AD_VALOREM",
+            "base_amount": {
+              "amount": "12704.93",
+              "currency": "USD"
+            },
+            "rate": "0.19",
+            "amount": {
+              "amount": "2413.94",
+              "currency": "USD"
+            },
+            "recoverable": true
+          }
+        ],
+        "levy_total": "2413.94",
+        "landed_cost": "12704.93",
+        "declaration_view": {
+          "payable_levies": "2413.94"
+        },
+        "cost_view": {
+          "capitalized_levies": "0.00",
+          "recoverable_levies_excluded": "2413.94",
+          "landed_cost": "12704.93"
+        }
+      }
+    ],
+    "totals": {
+      "currency": "USD",
+      "fob": "55000.00",
+      "freight": "3200.00",
+      "insurance": "30.93",
+      "customs_value": "58230.93",
+      "levies": {
+        "AD_VALOREM": "0.00",
+        "IVA": "11063.88"
+      },
+      "recoverable_levies": {
+        "IVA": "11063.88"
+      },
+      "nonrecoverable_levies": {
+        "AD_VALOREM": "0.00"
+      },
+      "duty": "0.00",
+      "total_payable": "11063.88",
+      "recoverable_total": "11063.88",
+      "capitalized_levy_total": "0.00",
+      "landed_cost": "58230.93",
+      "declaration_view": {
+        "total_payable": "11063.88"
+      },
+      "cost_view": {
+        "landed_cost": "58230.93",
+        "recoverable_levies_excluded": "11063.88"
+      },
+      "settlement_currency": "CLP",
+      "fx_rate": "963.45",
+      "fx_source": "dólar aduanero mensual ficticio del demo",
+      "fx_date": "2026-08-01",
+      "fx_period": "2026-08",
+      "total_payable_settlement": "10659495"
+    },
+    "insurance": {
+      "source": "client_policy_rate",
+      "policy": {
+        "mode": "policy_rate",
+        "insurance_coverage_pct": "1.15",
+        "insurance_rate": "0.000462",
+        "effective_from": "2026-01-01",
+        "global_premium_reference": "30.92",
+        "line_premium_total": "30.93",
+        "rounding_difference": "0.01",
+        "coverage_pct_provenance": "inferred"
+      }
+    },
+    "views": {
+      "declaration": {
+        "total_payable": "11063.88"
+      },
+      "cost": {
+        "landed_cost": "58230.93",
+        "recoverable_levies_excluded": "11063.88"
+      }
+    }
+  },
+  "B": {
+    "scenario": "EXCEPTIONS - held for review, 3 invoices / 3 DIN",
+    "despacho": "700612",
+    "referencia": "54415CLFA/26J21-3",
+    "bl": "OLS-NGB-2601583",
+    "uploaded_files": 8,
+    "commercial_invoices": 3,
+    "din_count": 3,
+    "checks": [
+      {
+        "id": "EXC-01",
+        "severity": "CRITICAL",
+        "status": "FAIL",
+        "title": "Peso bruto packing list vs B/L",
+        "detail": "Packing list 9,847.0 kg vs B/L 9,208.0 kg; diferencia 639.0 kg (6.9%), tolerancia 2%",
+        "suggested_action": "Solicitar B/L corregido o confirmación escrita del transportista.",
+        "financial_impact": null,
+        "source_refs": [
+          {
+            "document": "packing_list",
+            "field": "gross_weight_kg"
+          },
+          {
+            "document": "bill_of_lading",
+            "field": "gross_weight_kg"
+          }
+        ]
+      },
+      {
+        "id": "EXC-02",
+        "severity": "CRITICAL",
+        "status": "FAIL",
+        "title": "Facturas citadas en B/L",
+        "detail": "Faltan ['BN26010515']; no citadas ['BN26010514']",
+        "suggested_action": "Confirmar numeración y corregir B/L o factura.",
+        "financial_impact": null,
+        "source_refs": [
+          {
+            "document": "bill_of_lading",
+            "field": "invoice_numbers_cited"
+          },
+          {
+            "document": "commercial_invoice",
+            "field": "invoice_number"
+          }
+        ]
+      },
+      {
+        "id": "EXC-03",
+        "severity": "CRITICAL",
+        "status": "FAIL",
+        "title": "Cobertura de códigos HS por certificado de origen",
+        "detail": "Códigos sin cobertura: 8544.42",
+        "suggested_action": "Aplicar tasa general a las líneas no cubiertas o solicitar certificado enmendado.",
+        "financial_impact": {
+          "duty_under_declared": "582.79",
+          "iva_under_declared": "110.73",
+          "total_under_declared": "693.52"
+        },
+        "source_refs": [
+          {
+            "document": "commercial_invoice",
+            "field": "lines[].hs_code"
+          },
+          {
+            "document": "certificate_of_origin",
+            "field": "items[].hs_code"
+          }
+        ]
+      },
+      {
+        "id": "EXC-04",
+        "severity": "WARNING",
+        "status": "FAIL",
+        "title": "Suma asegurada mínima",
+        "detail": "Asegurado USD 68,000.00; requerido USD 78,798.00; faltante USD 10,798.00",
+        "suggested_action": "Solicitar endoso que aumente la suma asegurada.",
+        "financial_impact": null,
+        "source_refs": [
+          {
+            "document": "insurance_certificate",
+            "field": "sum_insured"
+          },
+          {
+            "document": "bill_of_lading",
+            "field": "freight_amount"
+          }
+        ]
+      },
+      {
+        "id": "EXC-05",
+        "severity": "WARNING",
+        "status": "FAIL",
+        "title": "Aritmética de facturas",
+        "detail": "BN26010513: 2600 x 12.50 = 32500.00, impreso 33800.00",
+        "suggested_action": "Confirmar el valor correcto con el proveedor.",
+        "financial_impact": null,
+        "source_refs": [
+          {
+            "document": "commercial_invoice",
+            "field": "lines[].quantity/unit_price/line_total"
+          }
+        ]
+      },
+      {
+        "id": "EXC-06",
+        "severity": "WARNING",
+        "status": "FAIL",
+        "title": "Consignatario consistente",
+        "detail": "B/L: FALABELLA RETAIL S.A.; BN26010512: FALABELLA RETAIL SpA; BN26010513: FALABELLA RETAIL SpA; BN26010514: FALABELLA RETAIL SpA; seguro: FALABELLA RETAIL S.A.; CoO: FALABELLA RETAIL S.A.",
+        "suggested_action": "Confirmar la entidad importadora y corregir los documentos.",
+        "financial_impact": null,
+        "source_refs": [
+          {
+            "document": "B/L",
+            "field": "consignee_name",
+            "value": "FALABELLA RETAIL S.A."
+          },
+          {
+            "document": "BN26010512",
+            "field": "consignee_name",
+            "value": "FALABELLA RETAIL SpA"
+          },
+          {
+            "document": "BN26010513",
+            "field": "consignee_name",
+            "value": "FALABELLA RETAIL SpA"
+          },
+          {
+            "document": "BN26010514",
+            "field": "consignee_name",
+            "value": "FALABELLA RETAIL SpA"
+          },
+          {
+            "document": "seguro",
+            "field": "consignee_name",
+            "value": "FALABELLA RETAIL S.A."
+          },
+          {
+            "document": "CoO",
+            "field": "consignee_name",
+            "value": "FALABELLA RETAIL S.A."
+          }
+        ]
+      },
+      {
+        "id": "EXC-07",
+        "severity": "WARNING",
+        "status": "FAIL",
+        "title": "Fecha del certificado de origen",
+        "detail": "Certificado 2026-07-28; embarque 2026-07-14; retrospectivo: False",
+        "suggested_action": "Solicitar certificado con anotación retrospectiva.",
+        "financial_impact": null,
+        "source_refs": [
+          {
+            "document": "certificate_of_origin",
+            "field": "issue_date/is_retrospective"
+          },
+          {
+            "document": "bill_of_lading",
+            "field": "shipped_on_board_date"
+          }
+        ]
+      },
+      {
+        "id": "EXC-08",
+        "severity": "WARNING",
+        "status": "PASS",
+        "title": "Contenedor consistente",
+        "detail": "B/L: OLSU5583114; packing list: OLSU5583114; CoO: OLSU5583114",
+        "suggested_action": null,
+        "financial_impact": null,
+        "source_refs": [
+          {
+            "document": "B/L",
+            "field": "container_number"
+          },
+          {
+            "document": "packing list",
+            "field": "container_number"
+          },
+          {
+            "document": "CoO",
+            "field": "container_number"
+          }
+        ]
+      },
+      {
+        "id": "EXC-09",
+        "severity": "WARNING",
+        "status": "PASS",
+        "title": "Moneda única de facturas",
+        "detail": "Monedas: USD",
+        "suggested_action": null,
+        "financial_impact": null,
+        "source_refs": []
+      },
+      {
+        "id": "CHK-10",
+        "severity": "INFO",
+        "status": "PASS",
+        "title": "Cantidad de bultos",
+        "detail": "Packing list 741; B/L 741",
+        "suggested_action": null,
+        "financial_impact": null,
+        "source_refs": []
+      },
+      {
+        "id": "CHK-11",
+        "severity": "INFO",
+        "status": "PASS",
+        "title": "Flete B/L vs instrucción",
+        "detail": "B/L USD 4,150.00; instrucción USD 4,150.00",
+        "suggested_action": null,
+        "financial_impact": null,
+        "source_refs": []
+      },
+      {
+        "id": "EXC-12",
+        "severity": "CRITICAL",
+        "status": "PASS",
+        "title": "Valor total de facturas vs B/L",
+        "detail": "Facturas USD 64,370.00; B/L USD 64,370.00; diferencia USD 0.00",
+        "suggested_action": null,
+        "financial_impact": null,
+        "source_refs": [
+          {
+            "document": "commercial_invoice",
+            "field": "invoice_total"
+          },
+          {
+            "document": "bill_of_lading",
+            "field": "declared_value_total"
+          }
+        ]
+      }
+    ],
+    "prorrateo": [
+      {
+        "invoice": "BN26010512",
+        "description": "LED Desk Lamp 8W, dimmable, aluminium body, model BP-DL80",
+        "hs_code": "9405.20",
+        "quantity": "3300",
+        "uom": "PCS",
+        "invoice_total": "21450.00",
+        "fob": "21450.00",
+        "share": "0.3332297654186732950132049091",
+        "allocations": {
+          "freight": "1382.90",
+          "insurance": "12.13"
+        },
+        "residual_codes": [],
+        "customs_value": "22845.03",
+        "duty_rate": "0.0",
+        "duty_reason": "Preferencia TLC Chile–China, certificado C26CL0119043 - EN RIESGO: certificado emitido después del embarque",
+        "levies": [
+          {
+            "code": "AD_VALOREM",
+            "label": "Derecho ad valorem",
+            "base_expression": "customs_value",
+            "base_amount": {
+              "amount": "22845.03",
+              "currency": "USD"
+            },
+            "rate": "0.0",
+            "amount": {
+              "amount": "0.00",
+              "currency": "USD"
+            },
+            "recoverable": false
+          },
+          {
+            "code": "IVA",
+            "label": "Impuesto al Valor Agregado",
+            "base_expression": "customs_value + AD_VALOREM",
+            "base_amount": {
+              "amount": "22845.03",
+              "currency": "USD"
+            },
+            "rate": "0.19",
+            "amount": {
+              "amount": "4340.56",
+              "currency": "USD"
+            },
+            "recoverable": true
+          }
+        ],
+        "levy_total": "4340.56",
+        "landed_cost": "22845.03",
+        "declaration_view": {
+          "payable_levies": "4340.56"
+        },
+        "cost_view": {
+          "capitalized_levies": "0.00",
+          "recoverable_levies_excluded": "4340.56",
+          "landed_cost": "22845.03"
+        }
+      },
+      {
+        "invoice": "BN26010513",
+        "description": "Bluetooth Portable Speaker 20W, IPX5, model BP-SP20",
+        "hs_code": "8518.22",
+        "quantity": "2600",
+        "uom": "PCS",
+        "invoice_total": "33800.00",
+        "fob": "33800.00",
+        "share": "0.5250893273263942830511107659",
+        "allocations": {
+          "freight": "2179.12",
+          "insurance": "19.12"
+        },
+        "residual_codes": [],
+        "customs_value": "35998.24",
+        "duty_rate": "0.0",
+        "duty_reason": "Preferencia TLC Chile–China, certificado C26CL0119043 - EN RIESGO: certificado emitido después del embarque",
+        "levies": [
+          {
+            "code": "AD_VALOREM",
+            "label": "Derecho ad valorem",
+            "base_expression": "customs_value",
+            "base_amount": {
+              "amount": "35998.24",
+              "currency": "USD"
+            },
+            "rate": "0.0",
+            "amount": {
+              "amount": "0.00",
+              "currency": "USD"
+            },
+            "recoverable": false
+          },
+          {
+            "code": "IVA",
+            "label": "Impuesto al Valor Agregado",
+            "base_expression": "customs_value + AD_VALOREM",
+            "base_amount": {
+              "amount": "35998.24",
+              "currency": "USD"
+            },
+            "rate": "0.19",
+            "amount": {
+              "amount": "6839.67",
+              "currency": "USD"
+            },
+            "recoverable": true
+          }
+        ],
+        "levy_total": "6839.67",
+        "landed_cost": "35998.24",
+        "declaration_view": {
+          "payable_levies": "6839.67"
+        },
+        "cost_view": {
+          "capitalized_levies": "0.00",
+          "recoverable_levies_excluded": "6839.67",
+          "landed_cost": "35998.24"
+        }
+      },
+      {
+        "invoice": "BN26010514",
+        "description": "USB-C Charging Cable 1.5m, braided nylon, 60W",
+        "hs_code": "8544.42",
+        "quantity": "9600",
+        "uom": "PCS",
+        "invoice_total": "9120.00",
+        "fob": "9120.00",
+        "share": "0.1416809072549324219356843250",
+        "allocations": {
+          "freight": "587.98",
+          "insurance": "5.16"
+        },
+        "residual_codes": [],
+        "customs_value": "9713.14",
+        "duty_rate": "0.06",
+        "duty_reason": "Tasa general: HS 8544.42 no está cubierto por certificado C26CL0119043",
+        "levies": [
+          {
+            "code": "AD_VALOREM",
+            "label": "Derecho ad valorem",
+            "base_expression": "customs_value",
+            "base_amount": {
+              "amount": "9713.14",
+              "currency": "USD"
+            },
+            "rate": "0.06",
+            "amount": {
+              "amount": "582.79",
+              "currency": "USD"
+            },
+            "recoverable": false
+          },
+          {
+            "code": "IVA",
+            "label": "Impuesto al Valor Agregado",
+            "base_expression": "customs_value + AD_VALOREM",
+            "base_amount": {
+              "amount": "10295.93",
+              "currency": "USD"
+            },
+            "rate": "0.19",
+            "amount": {
+              "amount": "1956.23",
+              "currency": "USD"
+            },
+            "recoverable": true
+          }
+        ],
+        "levy_total": "2539.02",
+        "landed_cost": "10295.93",
+        "declaration_view": {
+          "payable_levies": "2539.02"
+        },
+        "cost_view": {
+          "capitalized_levies": "582.79",
+          "recoverable_levies_excluded": "1956.23",
+          "landed_cost": "10295.93"
+        }
+      }
+    ],
+    "totals": {
+      "currency": "USD",
+      "fob": "64370.00",
+      "freight": "4150.00",
+      "insurance": "36.41",
+      "customs_value": "68556.41",
+      "levies": {
+        "AD_VALOREM": "582.79",
+        "IVA": "13136.46"
+      },
+      "recoverable_levies": {
+        "IVA": "13136.46"
+      },
+      "nonrecoverable_levies": {
+        "AD_VALOREM": "582.79"
+      },
+      "duty": "582.79",
+      "total_payable": "13719.25",
+      "recoverable_total": "13136.46",
+      "capitalized_levy_total": "582.79",
+      "landed_cost": "69139.20",
+      "declaration_view": {
+        "total_payable": "13719.25"
+      },
+      "cost_view": {
+        "landed_cost": "69139.20",
+        "recoverable_levies_excluded": "13136.46"
+      },
+      "settlement_currency": "CLP",
+      "fx_rate": "963.45",
+      "fx_source": "dólar aduanero mensual ficticio del demo",
+      "fx_date": "2026-08-01",
+      "fx_period": "2026-08",
+      "total_payable_settlement": "13217811"
+    },
+    "insurance": {
+      "source": "client_policy_rate",
+      "policy": {
+        "mode": "policy_rate",
+        "insurance_coverage_pct": "1.15",
+        "insurance_rate": "0.000462",
+        "effective_from": "2026-01-01",
+        "global_premium_reference": "36.40",
+        "line_premium_total": "36.41",
+        "rounding_difference": "0.01",
+        "coverage_pct_provenance": "inferred"
+      }
+    },
+    "views": {
+      "declaration": {
+        "total_payable": "13719.25"
+      },
+      "cost": {
+        "landed_cost": "69139.20",
+        "recoverable_levies_excluded": "13136.46"
+      }
+    }
+  },
+  "C": {
+    "scenario": "VOLUME - 40 invoices / 40 DIN",
+    "despacho": "700613",
+    "referencia": "54415CLFA/26J28-9",
+    "bl": "OLS-SHA-2602288",
+    "uploaded_files": 45,
+    "commercial_invoices": 40,
+    "din_count": 40,
+    "checks": [
+      {
+        "id": "EXC-01",
+        "severity": "CRITICAL",
+        "status": "PASS",
+        "title": "Peso bruto packing list vs B/L",
+        "detail": "Packing list 27,750.0 kg vs B/L 27,750.0 kg; diferencia 0.0 kg (0.0%), tolerancia 2%",
+        "suggested_action": null,
+        "financial_impact": null,
+        "source_refs": [
+          {
+            "document": "packing_list",
+            "field": "gross_weight_kg"
+          },
+          {
+            "document": "bill_of_lading",
+            "field": "gross_weight_kg"
+          }
+        ]
+      },
+      {
+        "id": "EXC-02",
+        "severity": "CRITICAL",
+        "status": "PASS",
+        "title": "Facturas citadas en B/L",
+        "detail": "Todas las facturas coinciden",
+        "suggested_action": null,
+        "financial_impact": null,
+        "source_refs": [
+          {
+            "document": "bill_of_lading",
+            "field": "invoice_numbers_cited"
+          },
+          {
+            "document": "commercial_invoice",
+            "field": "invoice_number"
+          }
+        ]
+      },
+      {
+        "id": "EXC-03",
+        "severity": "CRITICAL",
+        "status": "PASS",
+        "title": "Cobertura de códigos HS por certificado de origen",
+        "detail": "Todos los códigos HS están cubiertos",
+        "suggested_action": null,
+        "financial_impact": null,
+        "source_refs": [
+          {
+            "document": "commercial_invoice",
+            "field": "lines[].hs_code"
+          },
+          {
+            "document": "certificate_of_origin",
+            "field": "items[].hs_code"
+          }
+        ]
+      },
+      {
+        "id": "EXC-04",
+        "severity": "WARNING",
+        "status": "PASS",
+        "title": "Suma asegurada mínima",
+        "detail": "Asegurado USD 576,230.50; requerido USD 576,230.50; faltante USD 0.00",
+        "suggested_action": null,
+        "financial_impact": null,
+        "source_refs": [
+          {
+            "document": "insurance_certificate",
+            "field": "sum_insured"
+          },
+          {
+            "document": "bill_of_lading",
+            "field": "freight_amount"
+          }
+        ]
+      },
+      {
+        "id": "EXC-05",
+        "severity": "WARNING",
+        "status": "PASS",
+        "title": "Aritmética de facturas",
+        "detail": "Todas las facturas cuadran",
+        "suggested_action": null,
+        "financial_impact": null,
+        "source_refs": [
+          {
+            "document": "commercial_invoice",
+            "field": "lines[].quantity/unit_price/line_total"
+          }
+        ]
+      },
+      {
+        "id": "EXC-06",
+        "severity": "WARNING",
+        "status": "PASS",
+        "title": "Consignatario consistente",
+        "detail": "B/L: FALABELLA RETAIL S.A.; BN26010601: FALABELLA RETAIL S.A.; BN26010602: FALABELLA RETAIL S.A.; BN26010603: FALABELLA RETAIL S.A.; BN26010604: FALABELLA RETAIL S.A.; BN26010605: FALABELLA RETAIL S.A.; BN26010606: FALABELLA RETAIL S.A.; BN26010607: FALABELLA RETAIL S.A.; BN26010608: FALABELLA RETAIL S.A.; BN26010609: FALABELLA RETAIL S.A.; BN26010610: FALABELLA RETAIL S.A.; BN26010611: FALABELLA RETAIL S.A.; BN26010612: FALABELLA RETAIL S.A.; BN26010613: FALABELLA RETAIL S.A.; BN26010614: FALABELLA RETAIL S.A.; BN26010615: FALABELLA RETAIL S.A.; BN26010616: FALABELLA RETAIL S.A.; BN26010617: FALABELLA RETAIL S.A.; BN26010618: FALABELLA RETAIL S.A.; BN26010619: FALABELLA RETAIL S.A.; BN26010620: FALABELLA RETAIL S.A.; BN26010621: FALABELLA RETAIL S.A.; BN26010622: FALABELLA RETAIL S.A.; BN26010623: FALABELLA RETAIL S.A.; BN26010624: FALABELLA RETAIL S.A.; BN26010625: FALABELLA RETAIL S.A.; BN26010626: FALABELLA RETAIL S.A.; BN26010627: FALABELLA RETAIL S.A.; BN26010628: FALABELLA RETAIL S.A.; BN26010629: FALABELLA RETAIL S.A.; BN26010630: FALABELLA RETAIL S.A.; BN26010631: FALABELLA RETAIL S.A.; BN26010632: FALABELLA RETAIL S.A.; BN26010633: FALABELLA RETAIL S.A.; BN26010634: FALABELLA RETAIL S.A.; BN26010635: FALABELLA RETAIL S.A.; BN26010636: FALABELLA RETAIL S.A.; BN26010637: FALABELLA RETAIL S.A.; BN26010638: FALABELLA RETAIL S.A.; BN26010639: FALABELLA RETAIL S.A.; BN26010640: FALABELLA RETAIL S.A.; seguro: FALABELLA RETAIL S.A.; CoO: FALABELLA RETAIL S.A.",
+        "suggested_action": null,
+        "financial_impact": null,
+        "source_refs": [
+          {
+            "document": "B/L",
+            "field": "consignee_name",
+            "value": "FALABELLA RETAIL S.A."
+          },
+          {
+            "document": "BN26010601",
+            "field": "consignee_name",
+            "value": "FALABELLA RETAIL S.A."
+          },
+          {
+            "document": "BN26010602",
+            "field": "consignee_name",
+            "value": "FALABELLA RETAIL S.A."
+          },
+          {
+            "document": "BN26010603",
+            "field": "consignee_name",
+            "value": "FALABELLA RETAIL S.A."
+          },
+          {
+            "document": "BN26010604",
+            "field": "consignee_name",
+            "value": "FALABELLA RETAIL S.A."
+          },
+          {
+            "document": "BN26010605",
+            "field": "consignee_name",
+            "value": "FALABELLA RETAIL S.A."
+          },
+          {
+            "document": "BN26010606",
+            "field": "consignee_name",
+            "value": "FALABELLA RETAIL S.A."
+          },
+          {
+            "document": "BN26010607",
+            "field": "consignee_name",
+            "value": "FALABELLA RETAIL S.A."
+          },
+          {
+            "document": "BN26010608",
+            "field": "consignee_name",
+            "value": "FALABELLA RETAIL S.A."
+          },
+          {
+            "document": "BN26010609",
+            "field": "consignee_name",
+            "value": "FALABELLA RETAIL S.A."
+          },
+          {
+            "document": "BN26010610",
+            "field": "consignee_name",
+            "value": "FALABELLA RETAIL S.A."
+          },
+          {
+            "document": "BN26010611",
+            "field": "consignee_name",
+            "value": "FALABELLA RETAIL S.A."
+          },
+          {
+            "document": "BN26010612",
+            "field": "consignee_name",
+            "value": "FALABELLA RETAIL S.A."
+          },
+          {
+            "document": "BN26010613",
+            "field": "consignee_name",
+            "value": "FALABELLA RETAIL S.A."
+          },
+          {
+            "document": "BN26010614",
+            "field": "consignee_name",
+            "value": "FALABELLA RETAIL S.A."
+          },
+          {
+            "document": "BN26010615",
+            "field": "consignee_name",
+            "value": "FALABELLA RETAIL S.A."
+          },
+          {
+            "document": "BN26010616",
+            "field": "consignee_name",
+            "value": "FALABELLA RETAIL S.A."
+          },
+          {
+            "document": "BN26010617",
+            "field": "consignee_name",
+            "value": "FALABELLA RETAIL S.A."
+          },
+          {
+            "document": "BN26010618",
+            "field": "consignee_name",
+            "value": "FALABELLA RETAIL S.A."
+          },
+          {
+            "document": "BN26010619",
+            "field": "consignee_name",
+            "value": "FALABELLA RETAIL S.A."
+          },
+          {
+            "document": "BN26010620",
+            "field": "consignee_name",
+            "value": "FALABELLA RETAIL S.A."
+          },
+          {
+            "document": "BN26010621",
+            "field": "consignee_name",
+            "value": "FALABELLA RETAIL S.A."
+          },
+          {
+            "document": "BN26010622",
+            "field": "consignee_name",
+            "value": "FALABELLA RETAIL S.A."
+          },
+          {
+            "document": "BN26010623",
+            "field": "consignee_name",
+            "value": "FALABELLA RETAIL S.A."
+          },
+          {
+            "document": "BN26010624",
+            "field": "consignee_name",
+            "value": "FALABELLA RETAIL S.A."
+          },
+          {
+            "document": "BN26010625",
+            "field": "consignee_name",
+            "value": "FALABELLA RETAIL S.A."
+          },
+          {
+            "document": "BN26010626",
+            "field": "consignee_name",
+            "value": "FALABELLA RETAIL S.A."
+          },
+          {
+            "document": "BN26010627",
+            "field": "consignee_name",
+            "value": "FALABELLA RETAIL S.A."
+          },
+          {
+            "document": "BN26010628",
+            "field": "consignee_name",
+            "value": "FALABELLA RETAIL S.A."
+          },
+          {
+            "document": "BN26010629",
+            "field": "consignee_name",
+            "value": "FALABELLA RETAIL S.A."
+          },
+          {
+            "document": "BN26010630",
+            "field": "consignee_name",
+            "value": "FALABELLA RETAIL S.A."
+          },
+          {
+            "document": "BN26010631",
+            "field": "consignee_name",
+            "value": "FALABELLA RETAIL S.A."
+          },
+          {
+            "document": "BN26010632",
+            "field": "consignee_name",
+            "value": "FALABELLA RETAIL S.A."
+          },
+          {
+            "document": "BN26010633",
+            "field": "consignee_name",
+            "value": "FALABELLA RETAIL S.A."
+          },
+          {
+            "document": "BN26010634",
+            "field": "consignee_name",
+            "value": "FALABELLA RETAIL S.A."
+          },
+          {
+            "document": "BN26010635",
+            "field": "consignee_name",
+            "value": "FALABELLA RETAIL S.A."
+          },
+          {
+            "document": "BN26010636",
+            "field": "consignee_name",
+            "value": "FALABELLA RETAIL S.A."
+          },
+          {
+            "document": "BN26010637",
+            "field": "consignee_name",
+            "value": "FALABELLA RETAIL S.A."
+          },
+          {
+            "document": "BN26010638",
+            "field": "consignee_name",
+            "value": "FALABELLA RETAIL S.A."
+          },
+          {
+            "document": "BN26010639",
+            "field": "consignee_name",
+            "value": "FALABELLA RETAIL S.A."
+          },
+          {
+            "document": "BN26010640",
+            "field": "consignee_name",
+            "value": "FALABELLA RETAIL S.A."
+          },
+          {
+            "document": "seguro",
+            "field": "consignee_name",
+            "value": "FALABELLA RETAIL S.A."
+          },
+          {
+            "document": "CoO",
+            "field": "consignee_name",
+            "value": "FALABELLA RETAIL S.A."
+          }
+        ]
+      },
+      {
+        "id": "EXC-07",
+        "severity": "WARNING",
+        "status": "PASS",
+        "title": "Fecha del certificado de origen",
+        "detail": "Certificado 2026-08-24; embarque 2026-08-28; retrospectivo: False",
+        "suggested_action": null,
+        "financial_impact": null,
+        "source_refs": [
+          {
+            "document": "certificate_of_origin",
+            "field": "issue_date/is_retrospective"
+          },
+          {
+            "document": "bill_of_lading",
+            "field": "shipped_on_board_date"
+          }
+        ]
+      },
+      {
+        "id": "EXC-08",
+        "severity": "WARNING",
+        "status": "PASS",
+        "title": "Contenedor consistente",
+        "detail": "B/L: OLSU6622881; packing list: OLSU6622881; CoO: OLSU6622881",
+        "suggested_action": null,
+        "financial_impact": null,
+        "source_refs": [
+          {
+            "document": "B/L",
+            "field": "container_number"
+          },
+          {
+            "document": "packing list",
+            "field": "container_number"
+          },
+          {
+            "document": "CoO",
+            "field": "container_number"
+          }
+        ]
+      },
+      {
+        "id": "EXC-09",
+        "severity": "WARNING",
+        "status": "PASS",
+        "title": "Moneda única de facturas",
+        "detail": "Monedas: USD",
+        "suggested_action": null,
+        "financial_impact": null,
+        "source_refs": []
+      },
+      {
+        "id": "CHK-10",
+        "severity": "INFO",
+        "status": "PASS",
+        "title": "Cantidad de bultos",
+        "detail": "Packing list 2220; B/L 2220",
+        "suggested_action": null,
+        "financial_impact": null,
+        "source_refs": []
+      },
+      {
+        "id": "CHK-11",
+        "severity": "INFO",
+        "status": "PASS",
+        "title": "Flete B/L vs instrucción",
+        "detail": "B/L USD 9,850.00; instrucción USD 9,850.00",
+        "suggested_action": null,
+        "financial_impact": null,
+        "source_refs": []
+      },
+      {
+        "id": "EXC-12",
+        "severity": "CRITICAL",
+        "status": "PASS",
+        "title": "Valor total de facturas vs B/L",
+        "detail": "Facturas USD 491,220.00; B/L USD 491,220.00; diferencia USD 0.00",
+        "suggested_action": null,
+        "financial_impact": null,
+        "source_refs": [
+          {
+            "document": "commercial_invoice",
+            "field": "invoice_total"
+          },
+          {
+            "document": "bill_of_lading",
+            "field": "declared_value_total"
+          }
+        ]
+      }
+    ],
+    "prorrateo": [
+      {
+        "invoice": "BN26010601",
+        "description": "Cotton bath towels assorted",
+        "hs_code": "6302.60",
+        "quantity": "420",
+        "uom": "PCS",
+        "invoice_total": "2100.00",
+        "fob": "2100.00",
+        "share": "0.004275070233296689874190790277",
+        "allocations": {
+          "freight": "42.11",
+          "insurance": "1.14"
+        },
+        "residual_codes": [],
+        "customs_value": "2143.25",
+        "duty_rate": "0.0",
+        "duty_reason": "Preferencia TLC Chile–China, certificado C26CL0124001",
+        "levies": [
+          {
+            "code": "AD_VALOREM",
+            "label": "Derecho ad valorem",
+            "base_expression": "customs_value",
+            "base_amount": {
+              "amount": "2143.25",
+              "currency": "USD"
+            },
+            "rate": "0.0",
+            "amount": {
+              "amount": "0.00",
+              "currency": "USD"
+            },
+            "recoverable": false
+          },
+          {
+            "code": "IVA",
+            "label": "Impuesto al Valor Agregado",
+            "base_expression": "customs_value + AD_VALOREM",
+            "base_amount": {
+              "amount": "2143.25",
+              "currency": "USD"
+            },
+            "rate": "0.19",
+            "amount": {
+              "amount": "407.22",
+              "currency": "USD"
+            },
+            "recoverable": true
+          }
+        ],
+        "levy_total": "407.22",
+        "landed_cost": "2143.25",
+        "declaration_view": {
+          "payable_levies": "407.22"
+        },
+        "cost_view": {
+          "capitalized_levies": "0.00",
+          "recoverable_levies_excluded": "407.22",
+          "landed_cost": "2143.25"
+        }
+      },
+      {
+        "invoice": "BN26010602",
+        "description": "Ceramic tableware set",
+        "hs_code": "6912.00",
+        "quantity": "440",
+        "uom": "PCS",
+        "invoice_total": "11000.00",
+        "fob": "11000.00",
+        "share": "0.02239322503155408981718985383",
+        "allocations": {
+          "freight": "220.57",
+          "insurance": "5.96"
+        },
+        "residual_codes": [],
+        "customs_value": "11226.53",
+        "duty_rate": "0.0",
+        "duty_reason": "Preferencia TLC Chile–China, certificado C26CL0124001",
+        "levies": [
+          {
+            "code": "AD_VALOREM",
+            "label": "Derecho ad valorem",
+            "base_expression": "customs_value",
+            "base_amount": {
+              "amount": "11226.53",
+              "currency": "USD"
+            },
+            "rate": "0.0",
+            "amount": {
+              "amount": "0.00",
+              "currency": "USD"
+            },
+            "recoverable": false
+          },
+          {
+            "code": "IVA",
+            "label": "Impuesto al Valor Agregado",
+            "base_expression": "customs_value + AD_VALOREM",
+            "base_amount": {
+              "amount": "11226.53",
+              "currency": "USD"
+            },
+            "rate": "0.19",
+            "amount": {
+              "amount": "2133.04",
+              "currency": "USD"
+            },
+            "recoverable": true
+          }
+        ],
+        "levy_total": "2133.04",
+        "landed_cost": "11226.53",
+        "declaration_view": {
+          "payable_levies": "2133.04"
+        },
+        "cost_view": {
+          "capitalized_levies": "0.00",
+          "recoverable_levies_excluded": "2133.04",
+          "landed_cost": "11226.53"
+        }
+      },
+      {
+        "invoice": "BN26010603",
+        "description": "Glass storage jars",
+        "hs_code": "7010.90",
+        "quantity": "460",
+        "uom": "PCS",
+        "invoice_total": "1840.00",
+        "fob": "1840.00",
+        "share": "0.003745775823459956842148121005",
+        "allocations": {
+          "freight": "36.90",
+          "insurance": "1.00"
+        },
+        "residual_codes": [],
+        "customs_value": "1877.90",
+        "duty_rate": "0.0",
+        "duty_reason": "Preferencia TLC Chile–China, certificado C26CL0124001",
+        "levies": [
+          {
+            "code": "AD_VALOREM",
+            "label": "Derecho ad valorem",
+            "base_expression": "customs_value",
+            "base_amount": {
+              "amount": "1877.90",
+              "currency": "USD"
+            },
+            "rate": "0.0",
+            "amount": {
+              "amount": "0.00",
+              "currency": "USD"
+            },
+            "recoverable": false
+          },
+          {
+            "code": "IVA",
+            "label": "Impuesto al Valor Agregado",
+            "base_expression": "customs_value + AD_VALOREM",
+            "base_amount": {
+              "amount": "1877.90",
+              "currency": "USD"
+            },
+            "rate": "0.19",
+            "amount": {
+              "amount": "356.80",
+              "currency": "USD"
+            },
+            "recoverable": true
+          }
+        ],
+        "levy_total": "356.80",
+        "landed_cost": "1877.90",
+        "declaration_view": {
+          "payable_levies": "356.80"
+        },
+        "cost_view": {
+          "capitalized_levies": "0.00",
+          "recoverable_levies_excluded": "356.80",
+          "landed_cost": "1877.90"
+        }
+      },
+      {
+        "invoice": "BN26010604",
+        "description": "LED desk lamps",
+        "hs_code": "9405.20",
+        "quantity": "480",
+        "uom": "PCS",
+        "invoice_total": "9600.00",
+        "fob": "9600.00",
+        "share": "0.01954317820935629656772932698",
+        "allocations": {
+          "freight": "192.50",
+          "insurance": "5.20"
+        },
+        "residual_codes": [],
+        "customs_value": "9797.70",
+        "duty_rate": "0.0",
+        "duty_reason": "Preferencia TLC Chile–China, certificado C26CL0124001",
+        "levies": [
+          {
+            "code": "AD_VALOREM",
+            "label": "Derecho ad valorem",
+            "base_expression": "customs_value",
+            "base_amount": {
+              "amount": "9797.70",
+              "currency": "USD"
+            },
+            "rate": "0.0",
+            "amount": {
+              "amount": "0.00",
+              "currency": "USD"
+            },
+            "recoverable": false
+          },
+          {
+            "code": "IVA",
+            "label": "Impuesto al Valor Agregado",
+            "base_expression": "customs_value + AD_VALOREM",
+            "base_amount": {
+              "amount": "9797.70",
+              "currency": "USD"
+            },
+            "rate": "0.19",
+            "amount": {
+              "amount": "1861.56",
+              "currency": "USD"
+            },
+            "recoverable": true
+          }
+        ],
+        "levy_total": "1861.56",
+        "landed_cost": "9797.70",
+        "declaration_view": {
+          "payable_levies": "1861.56"
+        },
+        "cost_view": {
+          "capitalized_levies": "0.00",
+          "recoverable_levies_excluded": "1861.56",
+          "landed_cost": "9797.70"
+        }
+      },
+      {
+        "invoice": "BN26010605",
+        "description": "Bluetooth speakers",
+        "hs_code": "8518.22",
+        "quantity": "500",
+        "uom": "PCS",
+        "invoice_total": "15000.00",
+        "fob": "15000.00",
+        "share": "0.03053621595211921338707707341",
+        "allocations": {
+          "freight": "300.78",
+          "insurance": "8.13"
+        },
+        "residual_codes": [],
+        "customs_value": "15308.91",
+        "duty_rate": "0.0",
+        "duty_reason": "Preferencia TLC Chile–China, certificado C26CL0124001",
+        "levies": [
+          {
+            "code": "AD_VALOREM",
+            "label": "Derecho ad valorem",
+            "base_expression": "customs_value",
+            "base_amount": {
+              "amount": "15308.91",
+              "currency": "USD"
+            },
+            "rate": "0.0",
+            "amount": {
+              "amount": "0.00",
+              "currency": "USD"
+            },
+            "recoverable": false
+          },
+          {
+            "code": "IVA",
+            "label": "Impuesto al Valor Agregado",
+            "base_expression": "customs_value + AD_VALOREM",
+            "base_amount": {
+              "amount": "15308.91",
+              "currency": "USD"
+            },
+            "rate": "0.19",
+            "amount": {
+              "amount": "2908.69",
+              "currency": "USD"
+            },
+            "recoverable": true
+          }
+        ],
+        "levy_total": "2908.69",
+        "landed_cost": "15308.91",
+        "declaration_view": {
+          "payable_levies": "2908.69"
+        },
+        "cost_view": {
+          "capitalized_levies": "0.00",
+          "recoverable_levies_excluded": "2908.69",
+          "landed_cost": "15308.91"
+        }
+      },
+      {
+        "invoice": "BN26010606",
+        "description": "Insulated copper cable",
+        "hs_code": "8544.42",
+        "quantity": "520",
+        "uom": "PCS",
+        "invoice_total": "4160.00",
+        "fob": "4160.00",
+        "share": "0.008468710557387728512682708359",
+        "allocations": {
+          "freight": "83.42",
+          "insurance": "2.25"
+        },
+        "residual_codes": [],
+        "customs_value": "4245.67",
+        "duty_rate": "0.0",
+        "duty_reason": "Preferencia TLC Chile–China, certificado C26CL0124001",
+        "levies": [
+          {
+            "code": "AD_VALOREM",
+            "label": "Derecho ad valorem",
+            "base_expression": "customs_value",
+            "base_amount": {
+              "amount": "4245.67",
+              "currency": "USD"
+            },
+            "rate": "0.0",
+            "amount": {
+              "amount": "0.00",
+              "currency": "USD"
+            },
+            "recoverable": false
+          },
+          {
+            "code": "IVA",
+            "label": "Impuesto al Valor Agregado",
+            "base_expression": "customs_value + AD_VALOREM",
+            "base_amount": {
+              "amount": "4245.67",
+              "currency": "USD"
+            },
+            "rate": "0.19",
+            "amount": {
+              "amount": "806.68",
+              "currency": "USD"
+            },
+            "recoverable": true
+          }
+        ],
+        "levy_total": "806.68",
+        "landed_cost": "4245.67",
+        "declaration_view": {
+          "payable_levies": "806.68"
+        },
+        "cost_view": {
+          "capitalized_levies": "0.00",
+          "recoverable_levies_excluded": "806.68",
+          "landed_cost": "4245.67"
+        }
+      },
+      {
+        "invoice": "BN26010607",
+        "description": "Cotton bath towels assorted",
+        "hs_code": "6302.60",
+        "quantity": "540",
+        "uom": "PCS",
+        "invoice_total": "2700.00",
+        "fob": "2700.00",
+        "share": "0.005496518871381458409673873214",
+        "allocations": {
+          "freight": "54.14",
+          "insurance": "1.46"
+        },
+        "residual_codes": [],
+        "customs_value": "2755.60",
+        "duty_rate": "0.0",
+        "duty_reason": "Preferencia TLC Chile–China, certificado C26CL0124001",
+        "levies": [
+          {
+            "code": "AD_VALOREM",
+            "label": "Derecho ad valorem",
+            "base_expression": "customs_value",
+            "base_amount": {
+              "amount": "2755.60",
+              "currency": "USD"
+            },
+            "rate": "0.0",
+            "amount": {
+              "amount": "0.00",
+              "currency": "USD"
+            },
+            "recoverable": false
+          },
+          {
+            "code": "IVA",
+            "label": "Impuesto al Valor Agregado",
+            "base_expression": "customs_value + AD_VALOREM",
+            "base_amount": {
+              "amount": "2755.60",
+              "currency": "USD"
+            },
+            "rate": "0.19",
+            "amount": {
+              "amount": "523.56",
+              "currency": "USD"
+            },
+            "recoverable": true
+          }
+        ],
+        "levy_total": "523.56",
+        "landed_cost": "2755.60",
+        "declaration_view": {
+          "payable_levies": "523.56"
+        },
+        "cost_view": {
+          "capitalized_levies": "0.00",
+          "recoverable_levies_excluded": "523.56",
+          "landed_cost": "2755.60"
+        }
+      },
+      {
+        "invoice": "BN26010608",
+        "description": "Ceramic tableware set",
+        "hs_code": "6912.00",
+        "quantity": "560",
+        "uom": "PCS",
+        "invoice_total": "14000.00",
+        "fob": "14000.00",
+        "share": "0.02850046822197793249460526852",
+        "allocations": {
+          "freight": "280.73",
+          "insurance": "7.59"
+        },
+        "residual_codes": [],
+        "customs_value": "14288.32",
+        "duty_rate": "0.0",
+        "duty_reason": "Preferencia TLC Chile–China, certificado C26CL0124001",
+        "levies": [
+          {
+            "code": "AD_VALOREM",
+            "label": "Derecho ad valorem",
+            "base_expression": "customs_value",
+            "base_amount": {
+              "amount": "14288.32",
+              "currency": "USD"
+            },
+            "rate": "0.0",
+            "amount": {
+              "amount": "0.00",
+              "currency": "USD"
+            },
+            "recoverable": false
+          },
+          {
+            "code": "IVA",
+            "label": "Impuesto al Valor Agregado",
+            "base_expression": "customs_value + AD_VALOREM",
+            "base_amount": {
+              "amount": "14288.32",
+              "currency": "USD"
+            },
+            "rate": "0.19",
+            "amount": {
+              "amount": "2714.78",
+              "currency": "USD"
+            },
+            "recoverable": true
+          }
+        ],
+        "levy_total": "2714.78",
+        "landed_cost": "14288.32",
+        "declaration_view": {
+          "payable_levies": "2714.78"
+        },
+        "cost_view": {
+          "capitalized_levies": "0.00",
+          "recoverable_levies_excluded": "2714.78",
+          "landed_cost": "14288.32"
+        }
+      },
+      {
+        "invoice": "BN26010609",
+        "description": "Glass storage jars",
+        "hs_code": "7010.90",
+        "quantity": "580",
+        "uom": "PCS",
+        "invoice_total": "2320.00",
+        "fob": "2320.00",
+        "share": "0.004722934733927771670534587354",
+        "allocations": {
+          "freight": "46.52",
+          "insurance": "1.26"
+        },
+        "residual_codes": [],
+        "customs_value": "2367.78",
+        "duty_rate": "0.0",
+        "duty_reason": "Preferencia TLC Chile–China, certificado C26CL0124001",
+        "levies": [
+          {
+            "code": "AD_VALOREM",
+            "label": "Derecho ad valorem",
+            "base_expression": "customs_value",
+            "base_amount": {
+              "amount": "2367.78",
+              "currency": "USD"
+            },
+            "rate": "0.0",
+            "amount": {
+              "amount": "0.00",
+              "currency": "USD"
+            },
+            "recoverable": false
+          },
+          {
+            "code": "IVA",
+            "label": "Impuesto al Valor Agregado",
+            "base_expression": "customs_value + AD_VALOREM",
+            "base_amount": {
+              "amount": "2367.78",
+              "currency": "USD"
+            },
+            "rate": "0.19",
+            "amount": {
+              "amount": "449.88",
+              "currency": "USD"
+            },
+            "recoverable": true
+          }
+        ],
+        "levy_total": "449.88",
+        "landed_cost": "2367.78",
+        "declaration_view": {
+          "payable_levies": "449.88"
+        },
+        "cost_view": {
+          "capitalized_levies": "0.00",
+          "recoverable_levies_excluded": "449.88",
+          "landed_cost": "2367.78"
+        }
+      },
+      {
+        "invoice": "BN26010610",
+        "description": "LED desk lamps",
+        "hs_code": "9405.20",
+        "quantity": "600",
+        "uom": "PCS",
+        "invoice_total": "12000.00",
+        "fob": "12000.00",
+        "share": "0.02442897276169537070966165873",
+        "allocations": {
+          "freight": "240.63",
+          "insurance": "6.50"
+        },
+        "residual_codes": [],
+        "customs_value": "12247.13",
+        "duty_rate": "0.0",
+        "duty_reason": "Preferencia TLC Chile–China, certificado C26CL0124001",
+        "levies": [
+          {
+            "code": "AD_VALOREM",
+            "label": "Derecho ad valorem",
+            "base_expression": "customs_value",
+            "base_amount": {
+              "amount": "12247.13",
+              "currency": "USD"
+            },
+            "rate": "0.0",
+            "amount": {
+              "amount": "0.00",
+              "currency": "USD"
+            },
+            "recoverable": false
+          },
+          {
+            "code": "IVA",
+            "label": "Impuesto al Valor Agregado",
+            "base_expression": "customs_value + AD_VALOREM",
+            "base_amount": {
+              "amount": "12247.13",
+              "currency": "USD"
+            },
+            "rate": "0.19",
+            "amount": {
+              "amount": "2326.95",
+              "currency": "USD"
+            },
+            "recoverable": true
+          }
+        ],
+        "levy_total": "2326.95",
+        "landed_cost": "12247.13",
+        "declaration_view": {
+          "payable_levies": "2326.95"
+        },
+        "cost_view": {
+          "capitalized_levies": "0.00",
+          "recoverable_levies_excluded": "2326.95",
+          "landed_cost": "12247.13"
+        }
+      },
+      {
+        "invoice": "BN26010611",
+        "description": "Bluetooth speakers",
+        "hs_code": "8518.22",
+        "quantity": "620",
+        "uom": "PCS",
+        "invoice_total": "18600.00",
+        "fob": "18600.00",
+        "share": "0.03786490778062782459997557103",
+        "allocations": {
+          "freight": "372.97",
+          "insurance": "10.08"
+        },
+        "residual_codes": [],
+        "customs_value": "18983.05",
+        "duty_rate": "0.0",
+        "duty_reason": "Preferencia TLC Chile–China, certificado C26CL0124001",
+        "levies": [
+          {
+            "code": "AD_VALOREM",
+            "label": "Derecho ad valorem",
+            "base_expression": "customs_value",
+            "base_amount": {
+              "amount": "18983.05",
+              "currency": "USD"
+            },
+            "rate": "0.0",
+            "amount": {
+              "amount": "0.00",
+              "currency": "USD"
+            },
+            "recoverable": false
+          },
+          {
+            "code": "IVA",
+            "label": "Impuesto al Valor Agregado",
+            "base_expression": "customs_value + AD_VALOREM",
+            "base_amount": {
+              "amount": "18983.05",
+              "currency": "USD"
+            },
+            "rate": "0.19",
+            "amount": {
+              "amount": "3606.78",
+              "currency": "USD"
+            },
+            "recoverable": true
+          }
+        ],
+        "levy_total": "3606.78",
+        "landed_cost": "18983.05",
+        "declaration_view": {
+          "payable_levies": "3606.78"
+        },
+        "cost_view": {
+          "capitalized_levies": "0.00",
+          "recoverable_levies_excluded": "3606.78",
+          "landed_cost": "18983.05"
+        }
+      },
+      {
+        "invoice": "BN26010612",
+        "description": "Insulated copper cable",
+        "hs_code": "8544.42",
+        "quantity": "640",
+        "uom": "PCS",
+        "invoice_total": "5120.00",
+        "fob": "5120.00",
+        "share": "0.01042302837832335816945564106",
+        "allocations": {
+          "freight": "102.67",
+          "insurance": "2.77"
+        },
+        "residual_codes": [],
+        "customs_value": "5225.44",
+        "duty_rate": "0.0",
+        "duty_reason": "Preferencia TLC Chile–China, certificado C26CL0124001",
+        "levies": [
+          {
+            "code": "AD_VALOREM",
+            "label": "Derecho ad valorem",
+            "base_expression": "customs_value",
+            "base_amount": {
+              "amount": "5225.44",
+              "currency": "USD"
+            },
+            "rate": "0.0",
+            "amount": {
+              "amount": "0.00",
+              "currency": "USD"
+            },
+            "recoverable": false
+          },
+          {
+            "code": "IVA",
+            "label": "Impuesto al Valor Agregado",
+            "base_expression": "customs_value + AD_VALOREM",
+            "base_amount": {
+              "amount": "5225.44",
+              "currency": "USD"
+            },
+            "rate": "0.19",
+            "amount": {
+              "amount": "992.83",
+              "currency": "USD"
+            },
+            "recoverable": true
+          }
+        ],
+        "levy_total": "992.83",
+        "landed_cost": "5225.44",
+        "declaration_view": {
+          "payable_levies": "992.83"
+        },
+        "cost_view": {
+          "capitalized_levies": "0.00",
+          "recoverable_levies_excluded": "992.83",
+          "landed_cost": "5225.44"
+        }
+      },
+      {
+        "invoice": "BN26010613",
+        "description": "Cotton bath towels assorted",
+        "hs_code": "6302.60",
+        "quantity": "660",
+        "uom": "PCS",
+        "invoice_total": "3300.00",
+        "fob": "3300.00",
+        "share": "0.006717967509466226945156956150",
+        "allocations": {
+          "freight": "66.17",
+          "insurance": "1.79"
+        },
+        "residual_codes": [],
+        "customs_value": "3367.96",
+        "duty_rate": "0.0",
+        "duty_reason": "Preferencia TLC Chile–China, certificado C26CL0124001",
+        "levies": [
+          {
+            "code": "AD_VALOREM",
+            "label": "Derecho ad valorem",
+            "base_expression": "customs_value",
+            "base_amount": {
+              "amount": "3367.96",
+              "currency": "USD"
+            },
+            "rate": "0.0",
+            "amount": {
+              "amount": "0.00",
+              "currency": "USD"
+            },
+            "recoverable": false
+          },
+          {
+            "code": "IVA",
+            "label": "Impuesto al Valor Agregado",
+            "base_expression": "customs_value + AD_VALOREM",
+            "base_amount": {
+              "amount": "3367.96",
+              "currency": "USD"
+            },
+            "rate": "0.19",
+            "amount": {
+              "amount": "639.91",
+              "currency": "USD"
+            },
+            "recoverable": true
+          }
+        ],
+        "levy_total": "639.91",
+        "landed_cost": "3367.96",
+        "declaration_view": {
+          "payable_levies": "639.91"
+        },
+        "cost_view": {
+          "capitalized_levies": "0.00",
+          "recoverable_levies_excluded": "639.91",
+          "landed_cost": "3367.96"
+        }
+      },
+      {
+        "invoice": "BN26010614",
+        "description": "Ceramic tableware set",
+        "hs_code": "6912.00",
+        "quantity": "680",
+        "uom": "PCS",
+        "invoice_total": "17000.00",
+        "fob": "17000.00",
+        "share": "0.03460771141240177517202068320",
+        "allocations": {
+          "freight": "340.89",
+          "insurance": "9.21"
+        },
+        "residual_codes": [],
+        "customs_value": "17350.10",
+        "duty_rate": "0.0",
+        "duty_reason": "Preferencia TLC Chile–China, certificado C26CL0124001",
+        "levies": [
+          {
+            "code": "AD_VALOREM",
+            "label": "Derecho ad valorem",
+            "base_expression": "customs_value",
+            "base_amount": {
+              "amount": "17350.10",
+              "currency": "USD"
+            },
+            "rate": "0.0",
+            "amount": {
+              "amount": "0.00",
+              "currency": "USD"
+            },
+            "recoverable": false
+          },
+          {
+            "code": "IVA",
+            "label": "Impuesto al Valor Agregado",
+            "base_expression": "customs_value + AD_VALOREM",
+            "base_amount": {
+              "amount": "17350.10",
+              "currency": "USD"
+            },
+            "rate": "0.19",
+            "amount": {
+              "amount": "3296.52",
+              "currency": "USD"
+            },
+            "recoverable": true
+          }
+        ],
+        "levy_total": "3296.52",
+        "landed_cost": "17350.10",
+        "declaration_view": {
+          "payable_levies": "3296.52"
+        },
+        "cost_view": {
+          "capitalized_levies": "0.00",
+          "recoverable_levies_excluded": "3296.52",
+          "landed_cost": "17350.10"
+        }
+      },
+      {
+        "invoice": "BN26010615",
+        "description": "Glass storage jars",
+        "hs_code": "7010.90",
+        "quantity": "700",
+        "uom": "PCS",
+        "invoice_total": "2800.00",
+        "fob": "2800.00",
+        "share": "0.005700093644395586498921053703",
+        "allocations": {
+          "freight": "56.15",
+          "insurance": "1.52"
+        },
+        "residual_codes": [],
+        "customs_value": "2857.67",
+        "duty_rate": "0.0",
+        "duty_reason": "Preferencia TLC Chile–China, certificado C26CL0124001",
+        "levies": [
+          {
+            "code": "AD_VALOREM",
+            "label": "Derecho ad valorem",
+            "base_expression": "customs_value",
+            "base_amount": {
+              "amount": "2857.67",
+              "currency": "USD"
+            },
+            "rate": "0.0",
+            "amount": {
+              "amount": "0.00",
+              "currency": "USD"
+            },
+            "recoverable": false
+          },
+          {
+            "code": "IVA",
+            "label": "Impuesto al Valor Agregado",
+            "base_expression": "customs_value + AD_VALOREM",
+            "base_amount": {
+              "amount": "2857.67",
+              "currency": "USD"
+            },
+            "rate": "0.19",
+            "amount": {
+              "amount": "542.96",
+              "currency": "USD"
+            },
+            "recoverable": true
+          }
+        ],
+        "levy_total": "542.96",
+        "landed_cost": "2857.67",
+        "declaration_view": {
+          "payable_levies": "542.96"
+        },
+        "cost_view": {
+          "capitalized_levies": "0.00",
+          "recoverable_levies_excluded": "542.96",
+          "landed_cost": "2857.67"
+        }
+      },
+      {
+        "invoice": "BN26010616",
+        "description": "LED desk lamps",
+        "hs_code": "9405.20",
+        "quantity": "720",
+        "uom": "PCS",
+        "invoice_total": "14400.00",
+        "fob": "14400.00",
+        "share": "0.02931476731403444485159399047",
+        "allocations": {
+          "freight": "288.75",
+          "insurance": "7.80"
+        },
+        "residual_codes": [],
+        "customs_value": "14696.55",
+        "duty_rate": "0.0",
+        "duty_reason": "Preferencia TLC Chile–China, certificado C26CL0124001",
+        "levies": [
+          {
+            "code": "AD_VALOREM",
+            "label": "Derecho ad valorem",
+            "base_expression": "customs_value",
+            "base_amount": {
+              "amount": "14696.55",
+              "currency": "USD"
+            },
+            "rate": "0.0",
+            "amount": {
+              "amount": "0.00",
+              "currency": "USD"
+            },
+            "recoverable": false
+          },
+          {
+            "code": "IVA",
+            "label": "Impuesto al Valor Agregado",
+            "base_expression": "customs_value + AD_VALOREM",
+            "base_amount": {
+              "amount": "14696.55",
+              "currency": "USD"
+            },
+            "rate": "0.19",
+            "amount": {
+              "amount": "2792.34",
+              "currency": "USD"
+            },
+            "recoverable": true
+          }
+        ],
+        "levy_total": "2792.34",
+        "landed_cost": "14696.55",
+        "declaration_view": {
+          "payable_levies": "2792.34"
+        },
+        "cost_view": {
+          "capitalized_levies": "0.00",
+          "recoverable_levies_excluded": "2792.34",
+          "landed_cost": "14696.55"
+        }
+      },
+      {
+        "invoice": "BN26010617",
+        "description": "Bluetooth speakers",
+        "hs_code": "8518.22",
+        "quantity": "740",
+        "uom": "PCS",
+        "invoice_total": "22200.00",
+        "fob": "22200.00",
+        "share": "0.04519359960913643581287406865",
+        "allocations": {
+          "freight": "445.16",
+          "insurance": "12.03"
+        },
+        "residual_codes": [],
+        "customs_value": "22657.19",
+        "duty_rate": "0.0",
+        "duty_reason": "Preferencia TLC Chile–China, certificado C26CL0124001",
+        "levies": [
+          {
+            "code": "AD_VALOREM",
+            "label": "Derecho ad valorem",
+            "base_expression": "customs_value",
+            "base_amount": {
+              "amount": "22657.19",
+              "currency": "USD"
+            },
+            "rate": "0.0",
+            "amount": {
+              "amount": "0.00",
+              "currency": "USD"
+            },
+            "recoverable": false
+          },
+          {
+            "code": "IVA",
+            "label": "Impuesto al Valor Agregado",
+            "base_expression": "customs_value + AD_VALOREM",
+            "base_amount": {
+              "amount": "22657.19",
+              "currency": "USD"
+            },
+            "rate": "0.19",
+            "amount": {
+              "amount": "4304.87",
+              "currency": "USD"
+            },
+            "recoverable": true
+          }
+        ],
+        "levy_total": "4304.87",
+        "landed_cost": "22657.19",
+        "declaration_view": {
+          "payable_levies": "4304.87"
+        },
+        "cost_view": {
+          "capitalized_levies": "0.00",
+          "recoverable_levies_excluded": "4304.87",
+          "landed_cost": "22657.19"
+        }
+      },
+      {
+        "invoice": "BN26010618",
+        "description": "Insulated copper cable",
+        "hs_code": "8544.42",
+        "quantity": "760",
+        "uom": "PCS",
+        "invoice_total": "6080.00",
+        "fob": "6080.00",
+        "share": "0.01237734619925898782622857376",
+        "allocations": {
+          "freight": "121.92",
+          "insurance": "3.30"
+        },
+        "residual_codes": [],
+        "customs_value": "6205.22",
+        "duty_rate": "0.0",
+        "duty_reason": "Preferencia TLC Chile–China, certificado C26CL0124001",
+        "levies": [
+          {
+            "code": "AD_VALOREM",
+            "label": "Derecho ad valorem",
+            "base_expression": "customs_value",
+            "base_amount": {
+              "amount": "6205.22",
+              "currency": "USD"
+            },
+            "rate": "0.0",
+            "amount": {
+              "amount": "0.00",
+              "currency": "USD"
+            },
+            "recoverable": false
+          },
+          {
+            "code": "IVA",
+            "label": "Impuesto al Valor Agregado",
+            "base_expression": "customs_value + AD_VALOREM",
+            "base_amount": {
+              "amount": "6205.22",
+              "currency": "USD"
+            },
+            "rate": "0.19",
+            "amount": {
+              "amount": "1178.99",
+              "currency": "USD"
+            },
+            "recoverable": true
+          }
+        ],
+        "levy_total": "1178.99",
+        "landed_cost": "6205.22",
+        "declaration_view": {
+          "payable_levies": "1178.99"
+        },
+        "cost_view": {
+          "capitalized_levies": "0.00",
+          "recoverable_levies_excluded": "1178.99",
+          "landed_cost": "6205.22"
+        }
+      },
+      {
+        "invoice": "BN26010619",
+        "description": "Cotton bath towels assorted",
+        "hs_code": "6302.60",
+        "quantity": "780",
+        "uom": "PCS",
+        "invoice_total": "3900.00",
+        "fob": "3900.00",
+        "share": "0.007939416147550995480640039086",
+        "allocations": {
+          "freight": "78.20",
+          "insurance": "2.11"
+        },
+        "residual_codes": [],
+        "customs_value": "3980.31",
+        "duty_rate": "0.0",
+        "duty_reason": "Preferencia TLC Chile–China, certificado C26CL0124001",
+        "levies": [
+          {
+            "code": "AD_VALOREM",
+            "label": "Derecho ad valorem",
+            "base_expression": "customs_value",
+            "base_amount": {
+              "amount": "3980.31",
+              "currency": "USD"
+            },
+            "rate": "0.0",
+            "amount": {
+              "amount": "0.00",
+              "currency": "USD"
+            },
+            "recoverable": false
+          },
+          {
+            "code": "IVA",
+            "label": "Impuesto al Valor Agregado",
+            "base_expression": "customs_value + AD_VALOREM",
+            "base_amount": {
+              "amount": "3980.31",
+              "currency": "USD"
+            },
+            "rate": "0.19",
+            "amount": {
+              "amount": "756.26",
+              "currency": "USD"
+            },
+            "recoverable": true
+          }
+        ],
+        "levy_total": "756.26",
+        "landed_cost": "3980.31",
+        "declaration_view": {
+          "payable_levies": "756.26"
+        },
+        "cost_view": {
+          "capitalized_levies": "0.00",
+          "recoverable_levies_excluded": "756.26",
+          "landed_cost": "3980.31"
+        }
+      },
+      {
+        "invoice": "BN26010620",
+        "description": "Ceramic tableware set",
+        "hs_code": "6912.00",
+        "quantity": "800",
+        "uom": "PCS",
+        "invoice_total": "20000.00",
+        "fob": "20000.00",
+        "share": "0.04071495460282561784943609788",
+        "allocations": {
+          "freight": "401.04",
+          "insurance": "10.84"
+        },
+        "residual_codes": [],
+        "customs_value": "20411.88",
+        "duty_rate": "0.0",
+        "duty_reason": "Preferencia TLC Chile–China, certificado C26CL0124001",
+        "levies": [
+          {
+            "code": "AD_VALOREM",
+            "label": "Derecho ad valorem",
+            "base_expression": "customs_value",
+            "base_amount": {
+              "amount": "20411.88",
+              "currency": "USD"
+            },
+            "rate": "0.0",
+            "amount": {
+              "amount": "0.00",
+              "currency": "USD"
+            },
+            "recoverable": false
+          },
+          {
+            "code": "IVA",
+            "label": "Impuesto al Valor Agregado",
+            "base_expression": "customs_value + AD_VALOREM",
+            "base_amount": {
+              "amount": "20411.88",
+              "currency": "USD"
+            },
+            "rate": "0.19",
+            "amount": {
+              "amount": "3878.26",
+              "currency": "USD"
+            },
+            "recoverable": true
+          }
+        ],
+        "levy_total": "3878.26",
+        "landed_cost": "20411.88",
+        "declaration_view": {
+          "payable_levies": "3878.26"
+        },
+        "cost_view": {
+          "capitalized_levies": "0.00",
+          "recoverable_levies_excluded": "3878.26",
+          "landed_cost": "20411.88"
+        }
+      },
+      {
+        "invoice": "BN26010621",
+        "description": "Glass storage jars",
+        "hs_code": "7010.90",
+        "quantity": "820",
+        "uom": "PCS",
+        "invoice_total": "3280.00",
+        "fob": "3280.00",
+        "share": "0.006677252554863401327307520052",
+        "allocations": {
+          "freight": "65.77",
+          "insurance": "1.78"
+        },
+        "residual_codes": [],
+        "customs_value": "3347.55",
+        "duty_rate": "0.0",
+        "duty_reason": "Preferencia TLC Chile–China, certificado C26CL0124001",
+        "levies": [
+          {
+            "code": "AD_VALOREM",
+            "label": "Derecho ad valorem",
+            "base_expression": "customs_value",
+            "base_amount": {
+              "amount": "3347.55",
+              "currency": "USD"
+            },
+            "rate": "0.0",
+            "amount": {
+              "amount": "0.00",
+              "currency": "USD"
+            },
+            "recoverable": false
+          },
+          {
+            "code": "IVA",
+            "label": "Impuesto al Valor Agregado",
+            "base_expression": "customs_value + AD_VALOREM",
+            "base_amount": {
+              "amount": "3347.55",
+              "currency": "USD"
+            },
+            "rate": "0.19",
+            "amount": {
+              "amount": "636.03",
+              "currency": "USD"
+            },
+            "recoverable": true
+          }
+        ],
+        "levy_total": "636.03",
+        "landed_cost": "3347.55",
+        "declaration_view": {
+          "payable_levies": "636.03"
+        },
+        "cost_view": {
+          "capitalized_levies": "0.00",
+          "recoverable_levies_excluded": "636.03",
+          "landed_cost": "3347.55"
+        }
+      },
+      {
+        "invoice": "BN26010622",
+        "description": "LED desk lamps",
+        "hs_code": "9405.20",
+        "quantity": "840",
+        "uom": "PCS",
+        "invoice_total": "16800.00",
+        "fob": "16800.00",
+        "share": "0.03420056186637351899352632222",
+        "allocations": {
+          "freight": "336.88",
+          "insurance": "9.10"
+        },
+        "residual_codes": [],
+        "customs_value": "17145.98",
+        "duty_rate": "0.0",
+        "duty_reason": "Preferencia TLC Chile–China, certificado C26CL0124001",
+        "levies": [
+          {
+            "code": "AD_VALOREM",
+            "label": "Derecho ad valorem",
+            "base_expression": "customs_value",
+            "base_amount": {
+              "amount": "17145.98",
+              "currency": "USD"
+            },
+            "rate": "0.0",
+            "amount": {
+              "amount": "0.00",
+              "currency": "USD"
+            },
+            "recoverable": false
+          },
+          {
+            "code": "IVA",
+            "label": "Impuesto al Valor Agregado",
+            "base_expression": "customs_value + AD_VALOREM",
+            "base_amount": {
+              "amount": "17145.98",
+              "currency": "USD"
+            },
+            "rate": "0.19",
+            "amount": {
+              "amount": "3257.74",
+              "currency": "USD"
+            },
+            "recoverable": true
+          }
+        ],
+        "levy_total": "3257.74",
+        "landed_cost": "17145.98",
+        "declaration_view": {
+          "payable_levies": "3257.74"
+        },
+        "cost_view": {
+          "capitalized_levies": "0.00",
+          "recoverable_levies_excluded": "3257.74",
+          "landed_cost": "17145.98"
+        }
+      },
+      {
+        "invoice": "BN26010623",
+        "description": "Bluetooth speakers",
+        "hs_code": "8518.22",
+        "quantity": "860",
+        "uom": "PCS",
+        "invoice_total": "25800.00",
+        "fob": "25800.00",
+        "share": "0.05252229143764504702577256626",
+        "allocations": {
+          "freight": "517.34",
+          "insurance": "13.98"
+        },
+        "residual_codes": [],
+        "customs_value": "26331.32",
+        "duty_rate": "0.0",
+        "duty_reason": "Preferencia TLC Chile–China, certificado C26CL0124001",
+        "levies": [
+          {
+            "code": "AD_VALOREM",
+            "label": "Derecho ad valorem",
+            "base_expression": "customs_value",
+            "base_amount": {
+              "amount": "26331.32",
+              "currency": "USD"
+            },
+            "rate": "0.0",
+            "amount": {
+              "amount": "0.00",
+              "currency": "USD"
+            },
+            "recoverable": false
+          },
+          {
+            "code": "IVA",
+            "label": "Impuesto al Valor Agregado",
+            "base_expression": "customs_value + AD_VALOREM",
+            "base_amount": {
+              "amount": "26331.32",
+              "currency": "USD"
+            },
+            "rate": "0.19",
+            "amount": {
+              "amount": "5002.95",
+              "currency": "USD"
+            },
+            "recoverable": true
+          }
+        ],
+        "levy_total": "5002.95",
+        "landed_cost": "26331.32",
+        "declaration_view": {
+          "payable_levies": "5002.95"
+        },
+        "cost_view": {
+          "capitalized_levies": "0.00",
+          "recoverable_levies_excluded": "5002.95",
+          "landed_cost": "26331.32"
+        }
+      },
+      {
+        "invoice": "BN26010624",
+        "description": "Insulated copper cable",
+        "hs_code": "8544.42",
+        "quantity": "880",
+        "uom": "PCS",
+        "invoice_total": "7040.00",
+        "fob": "7040.00",
+        "share": "0.01433166402019461748300150645",
+        "allocations": {
+          "freight": "141.17",
+          "insurance": "3.82"
+        },
+        "residual_codes": [],
+        "customs_value": "7184.99",
+        "duty_rate": "0.0",
+        "duty_reason": "Preferencia TLC Chile–China, certificado C26CL0124001",
+        "levies": [
+          {
+            "code": "AD_VALOREM",
+            "label": "Derecho ad valorem",
+            "base_expression": "customs_value",
+            "base_amount": {
+              "amount": "7184.99",
+              "currency": "USD"
+            },
+            "rate": "0.0",
+            "amount": {
+              "amount": "0.00",
+              "currency": "USD"
+            },
+            "recoverable": false
+          },
+          {
+            "code": "IVA",
+            "label": "Impuesto al Valor Agregado",
+            "base_expression": "customs_value + AD_VALOREM",
+            "base_amount": {
+              "amount": "7184.99",
+              "currency": "USD"
+            },
+            "rate": "0.19",
+            "amount": {
+              "amount": "1365.15",
+              "currency": "USD"
+            },
+            "recoverable": true
+          }
+        ],
+        "levy_total": "1365.15",
+        "landed_cost": "7184.99",
+        "declaration_view": {
+          "payable_levies": "1365.15"
+        },
+        "cost_view": {
+          "capitalized_levies": "0.00",
+          "recoverable_levies_excluded": "1365.15",
+          "landed_cost": "7184.99"
+        }
+      },
+      {
+        "invoice": "BN26010625",
+        "description": "Cotton bath towels assorted",
+        "hs_code": "6302.60",
+        "quantity": "900",
+        "uom": "PCS",
+        "invoice_total": "4500.00",
+        "fob": "4500.00",
+        "share": "0.009160864785635764016123122023",
+        "allocations": {
+          "freight": "90.23",
+          "insurance": "2.44"
+        },
+        "residual_codes": [],
+        "customs_value": "4592.67",
+        "duty_rate": "0.0",
+        "duty_reason": "Preferencia TLC Chile–China, certificado C26CL0124001",
+        "levies": [
+          {
+            "code": "AD_VALOREM",
+            "label": "Derecho ad valorem",
+            "base_expression": "customs_value",
+            "base_amount": {
+              "amount": "4592.67",
+              "currency": "USD"
+            },
+            "rate": "0.0",
+            "amount": {
+              "amount": "0.00",
+              "currency": "USD"
+            },
+            "recoverable": false
+          },
+          {
+            "code": "IVA",
+            "label": "Impuesto al Valor Agregado",
+            "base_expression": "customs_value + AD_VALOREM",
+            "base_amount": {
+              "amount": "4592.67",
+              "currency": "USD"
+            },
+            "rate": "0.19",
+            "amount": {
+              "amount": "872.61",
+              "currency": "USD"
+            },
+            "recoverable": true
+          }
+        ],
+        "levy_total": "872.61",
+        "landed_cost": "4592.67",
+        "declaration_view": {
+          "payable_levies": "872.61"
+        },
+        "cost_view": {
+          "capitalized_levies": "0.00",
+          "recoverable_levies_excluded": "872.61",
+          "landed_cost": "4592.67"
+        }
+      },
+      {
+        "invoice": "BN26010626",
+        "description": "Ceramic tableware set",
+        "hs_code": "6912.00",
+        "quantity": "920",
+        "uom": "PCS",
+        "invoice_total": "23000.00",
+        "fob": "23000.00",
+        "share": "0.04682219779324946052685151256",
+        "allocations": {
+          "freight": "461.20",
+          "insurance": "12.46"
+        },
+        "residual_codes": [],
+        "customs_value": "23473.66",
+        "duty_rate": "0.0",
+        "duty_reason": "Preferencia TLC Chile–China, certificado C26CL0124001",
+        "levies": [
+          {
+            "code": "AD_VALOREM",
+            "label": "Derecho ad valorem",
+            "base_expression": "customs_value",
+            "base_amount": {
+              "amount": "23473.66",
+              "currency": "USD"
+            },
+            "rate": "0.0",
+            "amount": {
+              "amount": "0.00",
+              "currency": "USD"
+            },
+            "recoverable": false
+          },
+          {
+            "code": "IVA",
+            "label": "Impuesto al Valor Agregado",
+            "base_expression": "customs_value + AD_VALOREM",
+            "base_amount": {
+              "amount": "23473.66",
+              "currency": "USD"
+            },
+            "rate": "0.19",
+            "amount": {
+              "amount": "4460.00",
+              "currency": "USD"
+            },
+            "recoverable": true
+          }
+        ],
+        "levy_total": "4460.00",
+        "landed_cost": "23473.66",
+        "declaration_view": {
+          "payable_levies": "4460.00"
+        },
+        "cost_view": {
+          "capitalized_levies": "0.00",
+          "recoverable_levies_excluded": "4460.00",
+          "landed_cost": "23473.66"
+        }
+      },
+      {
+        "invoice": "BN26010627",
+        "description": "Glass storage jars",
+        "hs_code": "7010.90",
+        "quantity": "940",
+        "uom": "PCS",
+        "invoice_total": "3760.00",
+        "fob": "3760.00",
+        "share": "0.007654411465331216155693986401",
+        "allocations": {
+          "freight": "75.40",
+          "insurance": "2.04"
+        },
+        "residual_codes": [],
+        "customs_value": "3837.44",
+        "duty_rate": "0.0",
+        "duty_reason": "Preferencia TLC Chile–China, certificado C26CL0124001",
+        "levies": [
+          {
+            "code": "AD_VALOREM",
+            "label": "Derecho ad valorem",
+            "base_expression": "customs_value",
+            "base_amount": {
+              "amount": "3837.44",
+              "currency": "USD"
+            },
+            "rate": "0.0",
+            "amount": {
+              "amount": "0.00",
+              "currency": "USD"
+            },
+            "recoverable": false
+          },
+          {
+            "code": "IVA",
+            "label": "Impuesto al Valor Agregado",
+            "base_expression": "customs_value + AD_VALOREM",
+            "base_amount": {
+              "amount": "3837.44",
+              "currency": "USD"
+            },
+            "rate": "0.19",
+            "amount": {
+              "amount": "729.11",
+              "currency": "USD"
+            },
+            "recoverable": true
+          }
+        ],
+        "levy_total": "729.11",
+        "landed_cost": "3837.44",
+        "declaration_view": {
+          "payable_levies": "729.11"
+        },
+        "cost_view": {
+          "capitalized_levies": "0.00",
+          "recoverable_levies_excluded": "729.11",
+          "landed_cost": "3837.44"
+        }
+      },
+      {
+        "invoice": "BN26010628",
+        "description": "LED desk lamps",
+        "hs_code": "9405.20",
+        "quantity": "960",
+        "uom": "PCS",
+        "invoice_total": "19200.00",
+        "fob": "19200.00",
+        "share": "0.03908635641871259313545865396",
+        "allocations": {
+          "freight": "385.00",
+          "insurance": "10.41"
+        },
+        "residual_codes": [],
+        "customs_value": "19595.41",
+        "duty_rate": "0.0",
+        "duty_reason": "Preferencia TLC Chile–China, certificado C26CL0124001",
+        "levies": [
+          {
+            "code": "AD_VALOREM",
+            "label": "Derecho ad valorem",
+            "base_expression": "customs_value",
+            "base_amount": {
+              "amount": "19595.41",
+              "currency": "USD"
+            },
+            "rate": "0.0",
+            "amount": {
+              "amount": "0.00",
+              "currency": "USD"
+            },
+            "recoverable": false
+          },
+          {
+            "code": "IVA",
+            "label": "Impuesto al Valor Agregado",
+            "base_expression": "customs_value + AD_VALOREM",
+            "base_amount": {
+              "amount": "19595.41",
+              "currency": "USD"
+            },
+            "rate": "0.19",
+            "amount": {
+              "amount": "3723.13",
+              "currency": "USD"
+            },
+            "recoverable": true
+          }
+        ],
+        "levy_total": "3723.13",
+        "landed_cost": "19595.41",
+        "declaration_view": {
+          "payable_levies": "3723.13"
+        },
+        "cost_view": {
+          "capitalized_levies": "0.00",
+          "recoverable_levies_excluded": "3723.13",
+          "landed_cost": "19595.41"
+        }
+      },
+      {
+        "invoice": "BN26010629",
+        "description": "Bluetooth speakers",
+        "hs_code": "8518.22",
+        "quantity": "980",
+        "uom": "PCS",
+        "invoice_total": "29400.00",
+        "fob": "29400.00",
+        "share": "0.05985098326615365823867106388",
+        "allocations": {
+          "freight": "589.53",
+          "insurance": "15.93"
+        },
+        "residual_codes": [],
+        "customs_value": "30005.46",
+        "duty_rate": "0.0",
+        "duty_reason": "Preferencia TLC Chile–China, certificado C26CL0124001",
+        "levies": [
+          {
+            "code": "AD_VALOREM",
+            "label": "Derecho ad valorem",
+            "base_expression": "customs_value",
+            "base_amount": {
+              "amount": "30005.46",
+              "currency": "USD"
+            },
+            "rate": "0.0",
+            "amount": {
+              "amount": "0.00",
+              "currency": "USD"
+            },
+            "recoverable": false
+          },
+          {
+            "code": "IVA",
+            "label": "Impuesto al Valor Agregado",
+            "base_expression": "customs_value + AD_VALOREM",
+            "base_amount": {
+              "amount": "30005.46",
+              "currency": "USD"
+            },
+            "rate": "0.19",
+            "amount": {
+              "amount": "5701.04",
+              "currency": "USD"
+            },
+            "recoverable": true
+          }
+        ],
+        "levy_total": "5701.04",
+        "landed_cost": "30005.46",
+        "declaration_view": {
+          "payable_levies": "5701.04"
+        },
+        "cost_view": {
+          "capitalized_levies": "0.00",
+          "recoverable_levies_excluded": "5701.04",
+          "landed_cost": "30005.46"
+        }
+      },
+      {
+        "invoice": "BN26010630",
+        "description": "Insulated copper cable",
+        "hs_code": "8544.42",
+        "quantity": "1000",
+        "uom": "PCS",
+        "invoice_total": "8000.00",
+        "fob": "8000.00",
+        "share": "0.01628598184113024713977443915",
+        "allocations": {
+          "freight": "160.42",
+          "insurance": "4.34"
+        },
+        "residual_codes": [],
+        "customs_value": "8164.76",
+        "duty_rate": "0.0",
+        "duty_reason": "Preferencia TLC Chile–China, certificado C26CL0124001",
+        "levies": [
+          {
+            "code": "AD_VALOREM",
+            "label": "Derecho ad valorem",
+            "base_expression": "customs_value",
+            "base_amount": {
+              "amount": "8164.76",
+              "currency": "USD"
+            },
+            "rate": "0.0",
+            "amount": {
+              "amount": "0.00",
+              "currency": "USD"
+            },
+            "recoverable": false
+          },
+          {
+            "code": "IVA",
+            "label": "Impuesto al Valor Agregado",
+            "base_expression": "customs_value + AD_VALOREM",
+            "base_amount": {
+              "amount": "8164.76",
+              "currency": "USD"
+            },
+            "rate": "0.19",
+            "amount": {
+              "amount": "1551.30",
+              "currency": "USD"
+            },
+            "recoverable": true
+          }
+        ],
+        "levy_total": "1551.30",
+        "landed_cost": "8164.76",
+        "declaration_view": {
+          "payable_levies": "1551.30"
+        },
+        "cost_view": {
+          "capitalized_levies": "0.00",
+          "recoverable_levies_excluded": "1551.30",
+          "landed_cost": "8164.76"
+        }
+      },
+      {
+        "invoice": "BN26010631",
+        "description": "Cotton bath towels assorted",
+        "hs_code": "6302.60",
+        "quantity": "1020",
+        "uom": "PCS",
+        "invoice_total": "5100.00",
+        "fob": "5100.00",
+        "share": "0.01038231342372053255160620496",
+        "allocations": {
+          "freight": "102.27",
+          "insurance": "2.76"
+        },
+        "residual_codes": [],
+        "customs_value": "5205.03",
+        "duty_rate": "0.0",
+        "duty_reason": "Preferencia TLC Chile–China, certificado C26CL0124001",
+        "levies": [
+          {
+            "code": "AD_VALOREM",
+            "label": "Derecho ad valorem",
+            "base_expression": "customs_value",
+            "base_amount": {
+              "amount": "5205.03",
+              "currency": "USD"
+            },
+            "rate": "0.0",
+            "amount": {
+              "amount": "0.00",
+              "currency": "USD"
+            },
+            "recoverable": false
+          },
+          {
+            "code": "IVA",
+            "label": "Impuesto al Valor Agregado",
+            "base_expression": "customs_value + AD_VALOREM",
+            "base_amount": {
+              "amount": "5205.03",
+              "currency": "USD"
+            },
+            "rate": "0.19",
+            "amount": {
+              "amount": "988.96",
+              "currency": "USD"
+            },
+            "recoverable": true
+          }
+        ],
+        "levy_total": "988.96",
+        "landed_cost": "5205.03",
+        "declaration_view": {
+          "payable_levies": "988.96"
+        },
+        "cost_view": {
+          "capitalized_levies": "0.00",
+          "recoverable_levies_excluded": "988.96",
+          "landed_cost": "5205.03"
+        }
+      },
+      {
+        "invoice": "BN26010632",
+        "description": "Ceramic tableware set",
+        "hs_code": "6912.00",
+        "quantity": "1040",
+        "uom": "PCS",
+        "invoice_total": "26000.00",
+        "fob": "26000.00",
+        "share": "0.05292944098367330320426692724",
+        "allocations": {
+          "freight": "521.35",
+          "insurance": "14.09"
+        },
+        "residual_codes": [],
+        "customs_value": "26535.44",
+        "duty_rate": "0.0",
+        "duty_reason": "Preferencia TLC Chile–China, certificado C26CL0124001",
+        "levies": [
+          {
+            "code": "AD_VALOREM",
+            "label": "Derecho ad valorem",
+            "base_expression": "customs_value",
+            "base_amount": {
+              "amount": "26535.44",
+              "currency": "USD"
+            },
+            "rate": "0.0",
+            "amount": {
+              "amount": "0.00",
+              "currency": "USD"
+            },
+            "recoverable": false
+          },
+          {
+            "code": "IVA",
+            "label": "Impuesto al Valor Agregado",
+            "base_expression": "customs_value + AD_VALOREM",
+            "base_amount": {
+              "amount": "26535.44",
+              "currency": "USD"
+            },
+            "rate": "0.19",
+            "amount": {
+              "amount": "5041.73",
+              "currency": "USD"
+            },
+            "recoverable": true
+          }
+        ],
+        "levy_total": "5041.73",
+        "landed_cost": "26535.44",
+        "declaration_view": {
+          "payable_levies": "5041.73"
+        },
+        "cost_view": {
+          "capitalized_levies": "0.00",
+          "recoverable_levies_excluded": "5041.73",
+          "landed_cost": "26535.44"
+        }
+      },
+      {
+        "invoice": "BN26010633",
+        "description": "Glass storage jars",
+        "hs_code": "7010.90",
+        "quantity": "1060",
+        "uom": "PCS",
+        "invoice_total": "4240.00",
+        "fob": "4240.00",
+        "share": "0.008631570375799030984080452750",
+        "allocations": {
+          "freight": "85.02",
+          "insurance": "2.30"
+        },
+        "residual_codes": [],
+        "customs_value": "4327.32",
+        "duty_rate": "0.0",
+        "duty_reason": "Preferencia TLC Chile–China, certificado C26CL0124001",
+        "levies": [
+          {
+            "code": "AD_VALOREM",
+            "label": "Derecho ad valorem",
+            "base_expression": "customs_value",
+            "base_amount": {
+              "amount": "4327.32",
+              "currency": "USD"
+            },
+            "rate": "0.0",
+            "amount": {
+              "amount": "0.00",
+              "currency": "USD"
+            },
+            "recoverable": false
+          },
+          {
+            "code": "IVA",
+            "label": "Impuesto al Valor Agregado",
+            "base_expression": "customs_value + AD_VALOREM",
+            "base_amount": {
+              "amount": "4327.32",
+              "currency": "USD"
+            },
+            "rate": "0.19",
+            "amount": {
+              "amount": "822.19",
+              "currency": "USD"
+            },
+            "recoverable": true
+          }
+        ],
+        "levy_total": "822.19",
+        "landed_cost": "4327.32",
+        "declaration_view": {
+          "payable_levies": "822.19"
+        },
+        "cost_view": {
+          "capitalized_levies": "0.00",
+          "recoverable_levies_excluded": "822.19",
+          "landed_cost": "4327.32"
+        }
+      },
+      {
+        "invoice": "BN26010634",
+        "description": "LED desk lamps",
+        "hs_code": "9405.20",
+        "quantity": "1080",
+        "uom": "PCS",
+        "invoice_total": "21600.00",
+        "fob": "21600.00",
+        "share": "0.04397215097105166727739098571",
+        "allocations": {
+          "freight": "433.13",
+          "insurance": "11.71"
+        },
+        "residual_codes": [],
+        "customs_value": "22044.84",
+        "duty_rate": "0.0",
+        "duty_reason": "Preferencia TLC Chile–China, certificado C26CL0124001",
+        "levies": [
+          {
+            "code": "AD_VALOREM",
+            "label": "Derecho ad valorem",
+            "base_expression": "customs_value",
+            "base_amount": {
+              "amount": "22044.84",
+              "currency": "USD"
+            },
+            "rate": "0.0",
+            "amount": {
+              "amount": "0.00",
+              "currency": "USD"
+            },
+            "recoverable": false
+          },
+          {
+            "code": "IVA",
+            "label": "Impuesto al Valor Agregado",
+            "base_expression": "customs_value + AD_VALOREM",
+            "base_amount": {
+              "amount": "22044.84",
+              "currency": "USD"
+            },
+            "rate": "0.19",
+            "amount": {
+              "amount": "4188.52",
+              "currency": "USD"
+            },
+            "recoverable": true
+          }
+        ],
+        "levy_total": "4188.52",
+        "landed_cost": "22044.84",
+        "declaration_view": {
+          "payable_levies": "4188.52"
+        },
+        "cost_view": {
+          "capitalized_levies": "0.00",
+          "recoverable_levies_excluded": "4188.52",
+          "landed_cost": "22044.84"
+        }
+      },
+      {
+        "invoice": "BN26010635",
+        "description": "Bluetooth speakers",
+        "hs_code": "8518.22",
+        "quantity": "1100",
+        "uom": "PCS",
+        "invoice_total": "33000.00",
+        "fob": "33000.00",
+        "share": "0.06717967509466226945156956150",
+        "allocations": {
+          "freight": "661.69",
+          "insurance": "17.88"
+        },
+        "residual_codes": [
+          "freight"
+        ],
+        "customs_value": "33679.57",
+        "duty_rate": "0.0",
+        "duty_reason": "Preferencia TLC Chile–China, certificado C26CL0124001",
+        "levies": [
+          {
+            "code": "AD_VALOREM",
+            "label": "Derecho ad valorem",
+            "base_expression": "customs_value",
+            "base_amount": {
+              "amount": "33679.57",
+              "currency": "USD"
+            },
+            "rate": "0.0",
+            "amount": {
+              "amount": "0.00",
+              "currency": "USD"
+            },
+            "recoverable": false
+          },
+          {
+            "code": "IVA",
+            "label": "Impuesto al Valor Agregado",
+            "base_expression": "customs_value + AD_VALOREM",
+            "base_amount": {
+              "amount": "33679.57",
+              "currency": "USD"
+            },
+            "rate": "0.19",
+            "amount": {
+              "amount": "6399.12",
+              "currency": "USD"
+            },
+            "recoverable": true
+          }
+        ],
+        "levy_total": "6399.12",
+        "landed_cost": "33679.57",
+        "declaration_view": {
+          "payable_levies": "6399.12"
+        },
+        "cost_view": {
+          "capitalized_levies": "0.00",
+          "recoverable_levies_excluded": "6399.12",
+          "landed_cost": "33679.57"
+        }
+      },
+      {
+        "invoice": "BN26010636",
+        "description": "Insulated copper cable",
+        "hs_code": "8544.42",
+        "quantity": "1120",
+        "uom": "PCS",
+        "invoice_total": "8960.00",
+        "fob": "8960.00",
+        "share": "0.01824029966206587679654737185",
+        "allocations": {
+          "freight": "179.67",
+          "insurance": "4.86"
+        },
+        "residual_codes": [],
+        "customs_value": "9144.53",
+        "duty_rate": "0.0",
+        "duty_reason": "Preferencia TLC Chile–China, certificado C26CL0124001",
+        "levies": [
+          {
+            "code": "AD_VALOREM",
+            "label": "Derecho ad valorem",
+            "base_expression": "customs_value",
+            "base_amount": {
+              "amount": "9144.53",
+              "currency": "USD"
+            },
+            "rate": "0.0",
+            "amount": {
+              "amount": "0.00",
+              "currency": "USD"
+            },
+            "recoverable": false
+          },
+          {
+            "code": "IVA",
+            "label": "Impuesto al Valor Agregado",
+            "base_expression": "customs_value + AD_VALOREM",
+            "base_amount": {
+              "amount": "9144.53",
+              "currency": "USD"
+            },
+            "rate": "0.19",
+            "amount": {
+              "amount": "1737.46",
+              "currency": "USD"
+            },
+            "recoverable": true
+          }
+        ],
+        "levy_total": "1737.46",
+        "landed_cost": "9144.53",
+        "declaration_view": {
+          "payable_levies": "1737.46"
+        },
+        "cost_view": {
+          "capitalized_levies": "0.00",
+          "recoverable_levies_excluded": "1737.46",
+          "landed_cost": "9144.53"
+        }
+      },
+      {
+        "invoice": "BN26010637",
+        "description": "Cotton bath towels assorted",
+        "hs_code": "6302.60",
+        "quantity": "1140",
+        "uom": "PCS",
+        "invoice_total": "5700.00",
+        "fob": "5700.00",
+        "share": "0.01160376206180530108708928790",
+        "allocations": {
+          "freight": "114.30",
+          "insurance": "3.09"
+        },
+        "residual_codes": [],
+        "customs_value": "5817.39",
+        "duty_rate": "0.0",
+        "duty_reason": "Preferencia TLC Chile–China, certificado C26CL0124001",
+        "levies": [
+          {
+            "code": "AD_VALOREM",
+            "label": "Derecho ad valorem",
+            "base_expression": "customs_value",
+            "base_amount": {
+              "amount": "5817.39",
+              "currency": "USD"
+            },
+            "rate": "0.0",
+            "amount": {
+              "amount": "0.00",
+              "currency": "USD"
+            },
+            "recoverable": false
+          },
+          {
+            "code": "IVA",
+            "label": "Impuesto al Valor Agregado",
+            "base_expression": "customs_value + AD_VALOREM",
+            "base_amount": {
+              "amount": "5817.39",
+              "currency": "USD"
+            },
+            "rate": "0.19",
+            "amount": {
+              "amount": "1105.30",
+              "currency": "USD"
+            },
+            "recoverable": true
+          }
+        ],
+        "levy_total": "1105.30",
+        "landed_cost": "5817.39",
+        "declaration_view": {
+          "payable_levies": "1105.30"
+        },
+        "cost_view": {
+          "capitalized_levies": "0.00",
+          "recoverable_levies_excluded": "1105.30",
+          "landed_cost": "5817.39"
+        }
+      },
+      {
+        "invoice": "BN26010638",
+        "description": "Ceramic tableware set",
+        "hs_code": "6912.00",
+        "quantity": "1160",
+        "uom": "PCS",
+        "invoice_total": "29000.00",
+        "fob": "29000.00",
+        "share": "0.05903668417409714588168234192",
+        "allocations": {
+          "freight": "581.51",
+          "insurance": "15.72"
+        },
+        "residual_codes": [],
+        "customs_value": "29597.23",
+        "duty_rate": "0.0",
+        "duty_reason": "Preferencia TLC Chile–China, certificado C26CL0124001",
+        "levies": [
+          {
+            "code": "AD_VALOREM",
+            "label": "Derecho ad valorem",
+            "base_expression": "customs_value",
+            "base_amount": {
+              "amount": "29597.23",
+              "currency": "USD"
+            },
+            "rate": "0.0",
+            "amount": {
+              "amount": "0.00",
+              "currency": "USD"
+            },
+            "recoverable": false
+          },
+          {
+            "code": "IVA",
+            "label": "Impuesto al Valor Agregado",
+            "base_expression": "customs_value + AD_VALOREM",
+            "base_amount": {
+              "amount": "29597.23",
+              "currency": "USD"
+            },
+            "rate": "0.19",
+            "amount": {
+              "amount": "5623.47",
+              "currency": "USD"
+            },
+            "recoverable": true
+          }
+        ],
+        "levy_total": "5623.47",
+        "landed_cost": "29597.23",
+        "declaration_view": {
+          "payable_levies": "5623.47"
+        },
+        "cost_view": {
+          "capitalized_levies": "0.00",
+          "recoverable_levies_excluded": "5623.47",
+          "landed_cost": "29597.23"
+        }
+      },
+      {
+        "invoice": "BN26010639",
+        "description": "Glass storage jars",
+        "hs_code": "7010.90",
+        "quantity": "1180",
+        "uom": "PCS",
+        "invoice_total": "4720.00",
+        "fob": "4720.00",
+        "share": "0.009608729286266845812466919099",
+        "allocations": {
+          "freight": "94.65",
+          "insurance": "2.56"
+        },
+        "residual_codes": [],
+        "customs_value": "4817.21",
+        "duty_rate": "0.0",
+        "duty_reason": "Preferencia TLC Chile–China, certificado C26CL0124001",
+        "levies": [
+          {
+            "code": "AD_VALOREM",
+            "label": "Derecho ad valorem",
+            "base_expression": "customs_value",
+            "base_amount": {
+              "amount": "4817.21",
+              "currency": "USD"
+            },
+            "rate": "0.0",
+            "amount": {
+              "amount": "0.00",
+              "currency": "USD"
+            },
+            "recoverable": false
+          },
+          {
+            "code": "IVA",
+            "label": "Impuesto al Valor Agregado",
+            "base_expression": "customs_value + AD_VALOREM",
+            "base_amount": {
+              "amount": "4817.21",
+              "currency": "USD"
+            },
+            "rate": "0.19",
+            "amount": {
+              "amount": "915.27",
+              "currency": "USD"
+            },
+            "recoverable": true
+          }
+        ],
+        "levy_total": "915.27",
+        "landed_cost": "4817.21",
+        "declaration_view": {
+          "payable_levies": "915.27"
+        },
+        "cost_view": {
+          "capitalized_levies": "0.00",
+          "recoverable_levies_excluded": "915.27",
+          "landed_cost": "4817.21"
+        }
+      },
+      {
+        "invoice": "BN26010640",
+        "description": "LED desk lamps",
+        "hs_code": "9405.20",
+        "quantity": "1200",
+        "uom": "PCS",
+        "invoice_total": "24000.00",
+        "fob": "24000.00",
+        "share": "0.04885794552339074141932331745",
+        "allocations": {
+          "freight": "481.25",
+          "insurance": "13.01"
+        },
+        "residual_codes": [],
+        "customs_value": "24494.26",
+        "duty_rate": "0.0",
+        "duty_reason": "Preferencia TLC Chile–China, certificado C26CL0124001",
+        "levies": [
+          {
+            "code": "AD_VALOREM",
+            "label": "Derecho ad valorem",
+            "base_expression": "customs_value",
+            "base_amount": {
+              "amount": "24494.26",
+              "currency": "USD"
+            },
+            "rate": "0.0",
+            "amount": {
+              "amount": "0.00",
+              "currency": "USD"
+            },
+            "recoverable": false
+          },
+          {
+            "code": "IVA",
+            "label": "Impuesto al Valor Agregado",
+            "base_expression": "customs_value + AD_VALOREM",
+            "base_amount": {
+              "amount": "24494.26",
+              "currency": "USD"
+            },
+            "rate": "0.19",
+            "amount": {
+              "amount": "4653.91",
+              "currency": "USD"
+            },
+            "recoverable": true
+          }
+        ],
+        "levy_total": "4653.91",
+        "landed_cost": "24494.26",
+        "declaration_view": {
+          "payable_levies": "4653.91"
+        },
+        "cost_view": {
+          "capitalized_levies": "0.00",
+          "recoverable_levies_excluded": "4653.91",
+          "landed_cost": "24494.26"
+        }
+      }
+    ],
+    "totals": {
+      "currency": "USD",
+      "fob": "491220.00",
+      "freight": "9850.00",
+      "insurance": "266.22",
+      "customs_value": "501336.22",
+      "levies": {
+        "AD_VALOREM": "0.00",
+        "IVA": "95253.87"
+      },
+      "recoverable_levies": {
+        "IVA": "95253.87"
+      },
+      "nonrecoverable_levies": {
+        "AD_VALOREM": "0.00"
+      },
+      "duty": "0.00",
+      "total_payable": "95253.87",
+      "recoverable_total": "95253.87",
+      "capitalized_levy_total": "0.00",
+      "landed_cost": "501336.22",
+      "declaration_view": {
+        "total_payable": "95253.87"
+      },
+      "cost_view": {
+        "landed_cost": "501336.22",
+        "recoverable_levies_excluded": "95253.87"
+      },
+      "settlement_currency": "CLP",
+      "fx_rate": "963.45",
+      "fx_source": "dólar aduanero mensual ficticio del demo",
+      "fx_date": "2026-08-01",
+      "fx_period": "2026-08",
+      "total_payable_settlement": "91772341"
+    },
+    "insurance": {
+      "source": "client_policy_rate",
+      "policy": {
+        "mode": "policy_rate",
+        "insurance_coverage_pct": "1.15",
+        "insurance_rate": "0.000462",
+        "effective_from": "2026-01-01",
+        "global_premium_reference": "266.22",
+        "line_premium_total": "266.22",
+        "rounding_difference": "0.00",
+        "coverage_pct_provenance": "inferred"
+      }
+    },
+    "views": {
+      "declaration": {
+        "total_payable": "95253.87"
+      },
+      "cost": {
+        "landed_cost": "501336.22",
+        "recoverable_levies_excluded": "95253.87"
+      }
+    }
+  },
+  "D": {
+    "scenario": "CIF - normalize to FOB before rebuilding customs value",
+    "despacho": "700614",
+    "referencia": "54415CLFA/26K02-4",
+    "bl": "OLS-SHA-2602401",
+    "uploaded_files": 6,
+    "commercial_invoices": 1,
+    "din_count": 1,
+    "checks": [
+      {
+        "id": "EXC-01",
+        "severity": "CRITICAL",
+        "status": "PASS",
+        "title": "Peso bruto packing list vs B/L",
+        "detail": "Packing list 3,000.0 kg vs B/L 3,000.0 kg; diferencia 0.0 kg (0.0%), tolerancia 2%",
+        "suggested_action": null,
+        "financial_impact": null,
+        "source_refs": [
+          {
+            "document": "packing_list",
+            "field": "gross_weight_kg"
+          },
+          {
+            "document": "bill_of_lading",
+            "field": "gross_weight_kg"
+          }
+        ]
+      },
+      {
+        "id": "EXC-02",
+        "severity": "CRITICAL",
+        "status": "PASS",
+        "title": "Facturas citadas en B/L",
+        "detail": "Todas las facturas coinciden",
+        "suggested_action": null,
+        "financial_impact": null,
+        "source_refs": [
+          {
+            "document": "bill_of_lading",
+            "field": "invoice_numbers_cited"
+          },
+          {
+            "document": "commercial_invoice",
+            "field": "invoice_number"
+          }
+        ]
+      },
+      {
+        "id": "EXC-03",
+        "severity": "CRITICAL",
+        "status": "PASS",
+        "title": "Cobertura de códigos HS por certificado de origen",
+        "detail": "Todos los códigos HS están cubiertos",
+        "suggested_action": null,
+        "financial_impact": null,
+        "source_refs": [
+          {
+            "document": "commercial_invoice",
+            "field": "lines[].hs_code"
+          },
+          {
+            "document": "certificate_of_origin",
+            "field": "items[].hs_code"
+          }
+        ]
+      },
+      {
+        "id": "EXC-04",
+        "severity": "WARNING",
+        "status": "PASS",
+        "title": "Suma asegurada mínima",
+        "detail": "Asegurado USD 15,180.00; requerido USD 15,180.00; faltante USD 0.00",
+        "suggested_action": null,
+        "financial_impact": null,
+        "source_refs": [
+          {
+            "document": "insurance_certificate",
+            "field": "sum_insured"
+          },
+          {
+            "document": "bill_of_lading",
+            "field": "freight_amount"
+          }
+        ]
+      },
+      {
+        "id": "EXC-05",
+        "severity": "WARNING",
+        "status": "PASS",
+        "title": "Aritmética de facturas",
+        "detail": "Todas las facturas cuadran",
+        "suggested_action": null,
+        "financial_impact": null,
+        "source_refs": [
+          {
+            "document": "commercial_invoice",
+            "field": "lines[].quantity/unit_price/line_total"
+          }
+        ]
+      },
+      {
+        "id": "EXC-06",
+        "severity": "WARNING",
+        "status": "PASS",
+        "title": "Consignatario consistente",
+        "detail": "B/L: FALABELLA RETAIL S.A.; BN26010701: FALABELLA RETAIL S.A.; seguro: FALABELLA RETAIL S.A.; CoO: FALABELLA RETAIL S.A.",
+        "suggested_action": null,
+        "financial_impact": null,
+        "source_refs": [
+          {
+            "document": "B/L",
+            "field": "consignee_name",
+            "value": "FALABELLA RETAIL S.A."
+          },
+          {
+            "document": "BN26010701",
+            "field": "consignee_name",
+            "value": "FALABELLA RETAIL S.A."
+          },
+          {
+            "document": "seguro",
+            "field": "consignee_name",
+            "value": "FALABELLA RETAIL S.A."
+          },
+          {
+            "document": "CoO",
+            "field": "consignee_name",
+            "value": "FALABELLA RETAIL S.A."
+          }
+        ]
+      },
+      {
+        "id": "EXC-07",
+        "severity": "WARNING",
+        "status": "PASS",
+        "title": "Fecha del certificado de origen",
+        "detail": "Certificado 2026-09-02; embarque 2026-09-02; retrospectivo: False",
+        "suggested_action": null,
+        "financial_impact": null,
+        "source_refs": [
+          {
+            "document": "certificate_of_origin",
+            "field": "issue_date/is_retrospective"
+          },
+          {
+            "document": "bill_of_lading",
+            "field": "shipped_on_board_date"
+          }
+        ]
+      },
+      {
+        "id": "EXC-08",
+        "severity": "WARNING",
+        "status": "PASS",
+        "title": "Contenedor consistente",
+        "detail": "B/L: OLSU7701401; packing list: OLSU7701401; CoO: OLSU7701401",
+        "suggested_action": null,
+        "financial_impact": null,
+        "source_refs": [
+          {
+            "document": "B/L",
+            "field": "container_number"
+          },
+          {
+            "document": "packing list",
+            "field": "container_number"
+          },
+          {
+            "document": "CoO",
+            "field": "container_number"
+          }
+        ]
+      },
+      {
+        "id": "EXC-09",
+        "severity": "WARNING",
+        "status": "PASS",
+        "title": "Moneda única de facturas",
+        "detail": "Monedas: USD",
+        "suggested_action": null,
+        "financial_impact": null,
+        "source_refs": []
+      },
+      {
+        "id": "CHK-10",
+        "severity": "INFO",
+        "status": "PASS",
+        "title": "Cantidad de bultos",
+        "detail": "Packing list 200; B/L 200",
+        "suggested_action": null,
+        "financial_impact": null,
+        "source_refs": []
+      },
+      {
+        "id": "CHK-11",
+        "severity": "INFO",
+        "status": "PASS",
+        "title": "Flete B/L vs instrucción",
+        "detail": "B/L USD 1,200.00; instrucción USD 1,200.00",
+        "suggested_action": null,
+        "financial_impact": null,
+        "source_refs": []
+      },
+      {
+        "id": "EXC-12",
+        "severity": "CRITICAL",
+        "status": "PASS",
+        "title": "Valor total de facturas vs B/L",
+        "detail": "Facturas USD 13,215.00; B/L USD 13,215.00; diferencia USD 0.00",
+        "suggested_action": null,
+        "financial_impact": null,
+        "source_refs": [
+          {
+            "document": "commercial_invoice",
+            "field": "invoice_total"
+          },
+          {
+            "document": "bill_of_lading",
+            "field": "declared_value_total"
+          }
+        ]
+      }
+    ],
+    "prorrateo": [
+      {
+        "invoice": "BN26010701",
+        "description": "Kitchen appliance set",
+        "hs_code": "8516.60",
+        "quantity": "100",
+        "uom": "PCS",
+        "invoice_total": "13215.00",
+        "fob": "12000.00",
+        "share": "1",
+        "allocations": {
+          "freight": "1200.00",
+          "insurance": "7.01"
+        },
+        "residual_codes": [],
+        "customs_value": "13207.01",
+        "duty_rate": "0.0",
+        "duty_reason": "Preferencia TLC Chile–China, certificado C26CL0125001",
+        "levies": [
+          {
+            "code": "AD_VALOREM",
+            "label": "Derecho ad valorem",
+            "base_expression": "customs_value",
+            "base_amount": {
+              "amount": "13207.01",
+              "currency": "USD"
+            },
+            "rate": "0.0",
+            "amount": {
+              "amount": "0.00",
+              "currency": "USD"
+            },
+            "recoverable": false
+          },
+          {
+            "code": "IVA",
+            "label": "Impuesto al Valor Agregado",
+            "base_expression": "customs_value + AD_VALOREM",
+            "base_amount": {
+              "amount": "13207.01",
+              "currency": "USD"
+            },
+            "rate": "0.19",
+            "amount": {
+              "amount": "2509.33",
+              "currency": "USD"
+            },
+            "recoverable": true
+          }
+        ],
+        "levy_total": "2509.33",
+        "landed_cost": "13207.01",
+        "declaration_view": {
+          "payable_levies": "2509.33"
+        },
+        "cost_view": {
+          "capitalized_levies": "0.00",
+          "recoverable_levies_excluded": "2509.33",
+          "landed_cost": "13207.01"
+        }
+      }
+    ],
+    "totals": {
+      "currency": "USD",
+      "fob": "12000.00",
+      "freight": "1200.00",
+      "insurance": "7.01",
+      "customs_value": "13207.01",
+      "levies": {
+        "AD_VALOREM": "0.00",
+        "IVA": "2509.33"
+      },
+      "recoverable_levies": {
+        "IVA": "2509.33"
+      },
+      "nonrecoverable_levies": {
+        "AD_VALOREM": "0.00"
+      },
+      "duty": "0.00",
+      "total_payable": "2509.33",
+      "recoverable_total": "2509.33",
+      "capitalized_levy_total": "0.00",
+      "landed_cost": "13207.01",
+      "declaration_view": {
+        "total_payable": "2509.33"
+      },
+      "cost_view": {
+        "landed_cost": "13207.01",
+        "recoverable_levies_excluded": "2509.33"
+      },
+      "settlement_currency": "CLP",
+      "fx_rate": "963.45",
+      "fx_source": "dólar aduanero mensual ficticio del demo",
+      "fx_date": "2026-08-01",
+      "fx_period": "2026-08",
+      "total_payable_settlement": "2417614"
+    },
+    "insurance": {
+      "source": "client_policy_rate",
+      "policy": {
+        "mode": "policy_rate",
+        "insurance_coverage_pct": "1.15",
+        "insurance_rate": "0.000462",
+        "effective_from": "2026-01-01",
+        "global_premium_reference": "7.01",
+        "line_premium_total": "7.01",
+        "rounding_difference": "0.00",
+        "coverage_pct_provenance": "inferred"
+      }
+    },
+    "views": {
+      "declaration": {
+        "total_payable": "2509.33"
+      },
+      "cost": {
+        "landed_cost": "13207.01",
+        "recoverable_levies_excluded": "2509.33"
+      }
+    }
+  },
+  "_meta": {
+    "engine": "jurisdiction and client-config driven",
+    "jurisdiction_config": "jurisdictions/chile.yaml",
+    "client_config": "clients/falabella.yaml",
+    "client_config_hash": "648a40e64e9336bd985cbe75a5cfbf4d47df902a96be5c1536ad7555e503a70d",
+    "levy_stack": [
+      "AD_VALOREM",
+      "IVA"
+    ],
+    "recoverable_levies": [
+      "IVA"
+    ],
+    "valuation_flow": "invoice price -> normalized FOB -> freight + insurance -> customs value",
+    "fx": {
+      "source": "dolar_aduanero",
+      "granularity": "monthly",
+      "date_rule": "din_acceptance_month",
+      "demo_rate_usd_clp": "963.45",
+      "demo_period": "2026-08"
+    },
+    "open_assumptions": {
+      "insurance_coverage_pct": {
+        "value": "1.15",
+        "provenance": "inferred",
+        "status": "pending agency confirmation"
+      },
+      "insurance_theoretical_rate": {
+        "value": null,
+        "status": "pending agency confirmation"
+      }
+    }
+  }
+}

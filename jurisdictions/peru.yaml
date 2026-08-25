@@ -1,0 +1,81 @@
+# Jurisdiction configuration — Peru
+# ILLUSTRATIVE ONLY. Included to prove the engine generalises without code changes.
+# Every rate and base expression here MUST be verified against SUNAT before any real use.
+code: PE
+name: Perú
+currency: PEN
+declaration:
+  code: DUA
+  name: Declaración Única de Aduanas
+  authority: SUNAT
+  adapter: adapters.pe_dua
+
+valuation:
+  base_name: CIF
+  components: [fob, freight, insurance]
+
+allocation:
+  basis: invoice_value
+  residual_to: largest_line
+  cost_lines:
+    - {code: freight,   label: Flete,           dutiable: true,  source: bill_of_lading}
+    - {code: insurance, label: Seguro,          dutiable: true,  source: computed}
+    - {code: storage,   label: Almacenaje,      dutiable: false, source: manual}
+
+incoterm_rules:
+  FOB: {deduct: []}
+  FCA: {deduct: []}
+  EXW: {deduct: []}
+  CFR: {deduct: [freight]}
+  CPT: {deduct: [freight]}
+  CIF: {deduct: [freight, insurance]}
+  CIP: {deduct: [freight, insurance]}
+  DAP: {deduct: [freight, insurance]}
+  DDP: {deduct: [freight, insurance, duties]}
+
+insurance_theoretical:
+  rate: null
+
+fx:
+  quote_currency: USD
+  source: tipo_cambio_venta
+  granularity: daily
+  date_rule: declaration_date
+  rounding: {dp: 2, mode: half_up}
+
+# Four levies instead of Chile's two. Note PERCEPCION's base includes
+# the two levies above it — the base expression handles cascading with no code change.
+levies:
+  - code: AD_VALOREM
+    label: Derecho ad valorem
+    base: customs_value
+    rate: {type: hs_lookup, default: 0.06, preference_capable: true}
+    rounding: {dp: 2, mode: half_up}
+    recoverable: false
+  - code: IGV
+    label: Impuesto General a las Ventas
+    base: customs_value + AD_VALOREM
+    rate: {type: flat, value: 0.16}
+    rounding: {dp: 2, mode: half_up}
+    recoverable: true
+  - code: IPM
+    label: Impuesto de Promoción Municipal
+    base: customs_value + AD_VALOREM
+    rate: {type: flat, value: 0.02}
+    rounding: {dp: 2, mode: half_up}
+    recoverable: true
+  - code: PERCEPCION
+    label: Percepción del IGV
+    base: customs_value + AD_VALOREM + IGV + IPM
+    rate: {type: flat, value: 0.035}
+    rounding: {dp: 2, mode: half_up}
+    recoverable: true
+
+tolerances: {weight_pct: 0.02, money_abs: 0.01}
+trade_agreements:
+  - code: PE_CN
+    label: TLC Perú–China
+    aliases: [CHINA–PERU FREE TRADE AGREEMENT, CHINA-PERU FREE TRADE AGREEMENT]
+    form: Certificate of Origin
+    origin_countries: [CN]
+    preferential_rate: 0.00

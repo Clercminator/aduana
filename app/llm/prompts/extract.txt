@@ -1,0 +1,11 @@
+Extrae el documento aduanero y devuelve exclusivamente JSON que cumpla el esquema.
+
+- Cada campo citado debe incluir value, provenance, page, source_text y confidence.
+- source_text debe contener los caracteres literales impresos. No parafrasear ni normalizar.
+- Si un campo está ausente: value=null, confidence=0, page=null y source_text=null.
+- No corrijas errores, inconsistencias ni posibles transposiciones. Informa exactamente lo impreso.
+- Números decimales como texto: dígitos, sin separador de miles y punto decimal.
+- Fechas: YYYY-MM-DD.
+- No calcules, compares ni emitas veredictos.
+
+Tipo documental ya clasificado: {doc_type}
