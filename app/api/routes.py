@@ -3,12 +3,13 @@ from __future__ import annotations
 import hashlib
 import json
 import uuid
+from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Header, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, Field
 from sqlalchemy import select
@@ -30,10 +31,14 @@ from app.db.models import (
     GeneratedArtifact,
     Job,
     JurisdictionConfigVersion,
+    Org,
 )
 from app.db.session import get_db
+from app.engine.agency import load_agency_catalog
+from app.engine.client import load_client_profile
 from app.services.bootstrap import ensure_demo_records
 from app.services.storage import LocalDocumentStore
+from app.services.upload_validation import UploadRejected, read_validated_uploads
 
 router = APIRouter(prefix="/api")
 
@@ -47,6 +52,42 @@ class RationaleRequest(BaseModel):
     rationale: str = Field(min_length=3)
 
 
+@dataclass(frozen=True)
+class TenantContext:
+    org_id: uuid.UUID
+    slug: str
+    name: str
+
+
+def require_tenant(
+    x_org_id: str | None = Header(default=None, alias="X-Org-ID"),
+    org_id: str | None = Query(default=None),
+    db: Session = Depends(get_db),
+) -> TenantContext:
+    if x_org_id and org_id and x_org_id != org_id:
+        raise HTTPException(400, "X-Org-ID y org_id deben identificar la misma organización")
+    raw_org_id = x_org_id or org_id
+    if not raw_org_id:
+        raise HTTPException(400, "Falta el contexto obligatorio X-Org-ID")
+    try:
+        parsed_org_id = uuid.UUID(raw_org_id)
+    except ValueError as exc:
+        raise HTTPException(400, "El contexto de organización no es un UUID válido") from exc
+    organization = db.get(Org, parsed_org_id)
+    if organization is None:
+        raise HTTPException(404, "Organización no encontrada")
+    return TenantContext(org_id=organization.id, slug=organization.slug, name=organization.name)
+
+
+def _dispatch_for_tenant(db: Session, dispatch_id: uuid.UUID, tenant: TenantContext) -> Dispatch:
+    dispatch = db.scalar(
+        select(Dispatch).where(Dispatch.id == dispatch_id, Dispatch.org_id == tenant.org_id)
+    )
+    if dispatch is None:
+        raise HTTPException(404, "Despacho no encontrado")
+    return dispatch
+
+
 def _record_artifact(
     db: Session,
     settings: Settings,
@@ -56,7 +97,7 @@ def _record_artifact(
     content: bytes,
 ) -> None:
     digest = hashlib.sha256(content).hexdigest()
-    target = settings.artifact_root / digest[:2] / f"{digest}.{extension}"
+    target = settings.artifact_root / str(dispatch.org_id) / digest[:2] / f"{digest}.{extension}"
     target.parent.mkdir(parents=True, exist_ok=True)
     if not target.exists():
         target.write_bytes(content)
@@ -72,10 +113,12 @@ def _record_artifact(
     db.commit()
 
 
-def _create_dispatch(db: Session, settings: Settings, expected_invoices: int = 3) -> Dispatch:
-    pins = ensure_demo_records(db, settings)
+def _create_dispatch(
+    db: Session, settings: Settings, tenant: TenantContext, expected_invoices: int = 3
+) -> Dispatch:
+    pins = ensure_demo_records(db, settings, tenant.org_id)
     dispatch = Dispatch(
-        org_id=uuid.UUID(settings.demo_org_id),
+        org_id=tenant.org_id,
         jurisdiction_config_version_id=pins.jurisdiction.id,
         client_config_version_id=pins.client.id,
         customs_fx_rate_id=pins.fx_rate.id,
@@ -102,7 +145,7 @@ def _create_dispatch(db: Session, settings: Settings, expected_invoices: int = 3
 def _add_documents(
     db: Session, settings: Settings, dispatch: Dispatch, uploads: list[tuple[str, bytes]]
 ) -> tuple[int, int]:
-    store = LocalDocumentStore(settings.document_root)
+    store = LocalDocumentStore(settings.document_root / str(dispatch.org_id))
     added = duplicates = 0
     for filename, content in uploads:
         if not content.startswith(b"%PDF"):
@@ -140,7 +183,11 @@ def _add_documents(
 
 def _queue(db: Session, dispatch: Dispatch) -> Job:
     running = db.scalar(
-        select(Job).where(Job.dispatch_id == dispatch.id, Job.status.in_(["queued", "running"]))
+        select(Job).where(
+            Job.org_id == dispatch.org_id,
+            Job.dispatch_id == dispatch.id,
+            Job.status.in_(["queued", "running"]),
+        )
     )
     if running:
         return running
@@ -158,16 +205,55 @@ def health() -> dict:
     return {"status": "ok", "demo_only": True}
 
 
+@router.get("/demo/agencies")
+def demo_agencies(settings: Settings = Depends(get_settings)) -> dict[str, Any]:
+    agencies = []
+    for loaded in load_agency_catalog(settings.agency_root):
+        agency = loaded.config
+        client = load_client_profile(settings.client_root / agency.client_profile).config
+        agencies.append(
+            {
+                "organization_id": str(agency.organization_id),
+                "slug": agency.slug,
+                "name": agency.name,
+                "client": client.client,
+                "client_label": agency.client_label,
+                "branding": agency.branding.model_dump(mode="json"),
+                "policy": {
+                    "insurance_mode": client.insurance.mode,
+                    "policy_rate": str(client.insurance.policy_rate)
+                    if client.insurance.policy_rate is not None
+                    else None,
+                    "coverage_pct": str(client.insurance.coverage_pct),
+                    "allocation_basis": client.allocation.basis,
+                    "default_incoterm": client.default_incoterm,
+                    "transport_document": client.transport_document,
+                },
+            }
+        )
+    return {
+        "agencies": agencies,
+        "upload_limits": {
+            "max_files": settings.max_upload_files,
+            "max_file_bytes": settings.max_upload_file_bytes,
+            "max_batch_bytes": settings.max_upload_batch_bytes,
+            "max_pdf_pages": settings.max_pdf_pages,
+        },
+    }
+
+
 @router.post("/intake/batches", status_code=202)
 async def intake_batch(
     files: list[UploadFile] = File(...),
+    tenant: TenantContext = Depends(require_tenant),
     db: Session = Depends(get_db),
     settings: Settings = Depends(get_settings),
 ):
-    if not files:
-        raise HTTPException(400, "Debe cargar al menos un PDF")
-    dispatch = _create_dispatch(db, settings)
-    uploads = [(item.filename or "document.pdf", await item.read()) for item in files]
+    try:
+        uploads = await read_validated_uploads(files, settings)
+    except UploadRejected as exc:
+        raise HTTPException(exc.status_code, exc.detail) from exc
+    dispatch = _create_dispatch(db, settings, tenant)
     added, duplicates = _add_documents(db, settings, dispatch, uploads)
     job = _queue(db, dispatch)
     return {
@@ -180,7 +266,10 @@ async def intake_batch(
 
 @router.post("/demo/load/{scenario}", status_code=202)
 def load_demo(
-    scenario: str, db: Session = Depends(get_db), settings: Settings = Depends(get_settings)
+    scenario: str,
+    tenant: TenantContext = Depends(require_tenant),
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_settings),
 ):
     scenarios = {
         "A": ("scenario_A_clean", 3),
@@ -192,7 +281,7 @@ def load_demo(
     if key not in scenarios:
         raise HTTPException(404, "Escenario debe ser A, B, C o D")
     folder, expected_invoices = scenarios[key]
-    dispatch = _create_dispatch(db, settings, expected_invoices=expected_invoices)
+    dispatch = _create_dispatch(db, settings, tenant, expected_invoices=expected_invoices)
     paths = sorted((settings.fixture_root / folder).glob("*.pdf"))
     uploads = [(path.name, path.read_bytes()) for path in paths]
     added, duplicates = _add_documents(db, settings, dispatch, uploads)
@@ -209,13 +298,15 @@ def load_demo(
 async def add_dispatch_documents(
     dispatch_id: uuid.UUID,
     files: list[UploadFile] = File(...),
+    tenant: TenantContext = Depends(require_tenant),
     db: Session = Depends(get_db),
     settings: Settings = Depends(get_settings),
 ):
-    dispatch = db.get(Dispatch, dispatch_id)
-    if not dispatch:
-        raise HTTPException(404, "Despacho no encontrado")
-    uploads = [(item.filename or "document.pdf", await item.read()) for item in files]
+    dispatch = _dispatch_for_tenant(db, dispatch_id, tenant)
+    try:
+        uploads = await read_validated_uploads(files, settings)
+    except UploadRejected as exc:
+        raise HTTPException(exc.status_code, exc.detail) from exc
     added, duplicates = _add_documents(db, settings, dispatch, uploads)
     job = _queue(db, dispatch)
     return {
@@ -227,8 +318,12 @@ async def add_dispatch_documents(
 
 
 @router.get("/jobs/{job_id}")
-def get_job(job_id: uuid.UUID, db: Session = Depends(get_db)):
-    job = db.get(Job, job_id)
+def get_job(
+    job_id: uuid.UUID,
+    tenant: TenantContext = Depends(require_tenant),
+    db: Session = Depends(get_db),
+):
+    job = db.scalar(select(Job).where(Job.id == job_id, Job.org_id == tenant.org_id))
     if not job:
         raise HTTPException(404, "Trabajo no encontrado")
     elapsed = None
@@ -246,12 +341,12 @@ def get_job(job_id: uuid.UUID, db: Session = Depends(get_db)):
     }
 
 
-def _state(db: Session, dispatch_id: uuid.UUID) -> dict[str, Any]:
-    dispatch = db.get(Dispatch, dispatch_id)
-    if not dispatch:
-        raise HTTPException(404, "Despacho no encontrado")
+def _state(db: Session, dispatch_id: uuid.UUID, tenant: TenantContext) -> dict[str, Any]:
+    dispatch = _dispatch_for_tenant(db, dispatch_id, tenant)
     docs = db.scalars(
-        select(Document).where(Document.dispatch_id == dispatch.id).order_by(Document.filename)
+        select(Document)
+        .where(Document.org_id == tenant.org_id, Document.dispatch_id == dispatch.id)
+        .order_by(Document.filename)
     ).all()
     document_payloads = []
     for doc in docs:
@@ -259,6 +354,7 @@ def _state(db: Session, dispatch_id: uuid.UUID) -> dict[str, Any]:
             select(ExtractionRun)
             .where(
                 ExtractionRun.document_id == doc.id,
+                ExtractionRun.org_id == tenant.org_id,
                 ExtractionRun.status == "done",
                 ExtractionRun.parser != "classification",
             )
@@ -276,23 +372,34 @@ def _state(db: Session, dispatch_id: uuid.UUID) -> dict[str, Any]:
                 "page_count": doc.page_count,
                 "has_text_layer": doc.has_text_layer,
                 "ocr_used": doc.ocr_used,
-                "file_url": f"/api/documents/{doc.id}/file",
+                "file_url": f"/api/documents/{doc.id}/file?org_id={tenant.org_id}",
                 "extraction": extraction.payload if extraction else None,
                 "extraction_status": extraction.status if extraction else "pending",
             }
         )
     calc = db.scalar(
         select(CalculationRun)
-        .where(CalculationRun.dispatch_id == dispatch.id)
+        .where(
+            CalculationRun.org_id == tenant.org_id,
+            CalculationRun.dispatch_id == dispatch.id,
+        )
         .order_by(CalculationRun.created_at.desc())
     )
     calculation = json.loads(json.dumps(calc.payload)) if calc else None
     config_version = db.get(JurisdictionConfigVersion, dispatch.jurisdiction_config_version_id)
-    client_version = db.get(ClientConfigVersion, dispatch.client_config_version_id)
+    client_version = db.scalar(
+        select(ClientConfigVersion).where(
+            ClientConfigVersion.id == dispatch.client_config_version_id,
+            ClientConfigVersion.org_id == tenant.org_id,
+        )
+    )
     fx_rate = db.get(CustomsFxRate, dispatch.customs_fx_rate_id)
     if calc and calculation:
         persisted = db.scalars(
-            select(ExceptionResult).where(ExceptionResult.calculation_run_id == calc.id)
+            select(ExceptionResult).where(
+                ExceptionResult.org_id == tenant.org_id,
+                ExceptionResult.calculation_run_id == calc.id,
+            )
         ).all()
         by_rule = {item.rule_id: item for item in persisted}
         for rule in calculation.get("rules", []):
@@ -302,17 +409,23 @@ def _state(db: Session, dispatch_id: uuid.UUID) -> dict[str, Any]:
                 rule["accepted_rationale"] = record.accepted_rationale
     audit = db.scalars(
         select(AuditEvent)
-        .where(AuditEvent.dispatch_id == dispatch.id)
+        .where(AuditEvent.org_id == tenant.org_id, AuditEvent.dispatch_id == dispatch.id)
         .order_by(AuditEvent.created_at.desc())
     ).all()
     artifacts = db.scalars(
         select(GeneratedArtifact)
-        .where(GeneratedArtifact.dispatch_id == dispatch.id)
+        .where(
+            GeneratedArtifact.org_id == tenant.org_id,
+            GeneratedArtifact.dispatch_id == dispatch.id,
+        )
         .order_by(GeneratedArtifact.created_at.desc())
     ).all()
     return {
         "dispatch": {
             "id": str(dispatch.id),
+            "organization_id": str(tenant.org_id),
+            "organization_name": tenant.name,
+            "organization_slug": tenant.slug,
             "despacho_no": dispatch.despacho_no,
             "referencia": dispatch.referencia,
             "status": dispatch.status,
@@ -359,15 +472,21 @@ def _state(db: Session, dispatch_id: uuid.UUID) -> dict[str, Any]:
 
 
 @router.get("/dispatches/{dispatch_id}")
-def get_dispatch(dispatch_id: uuid.UUID, db: Session = Depends(get_db)):
-    return _state(db, dispatch_id)
+def get_dispatch(
+    dispatch_id: uuid.UUID,
+    tenant: TenantContext = Depends(require_tenant),
+    db: Session = Depends(get_db),
+):
+    return _state(db, dispatch_id, tenant)
 
 
 @router.post("/dispatches/{dispatch_id}/run", status_code=202)
-def rerun(dispatch_id: uuid.UUID, db: Session = Depends(get_db)):
-    dispatch = db.get(Dispatch, dispatch_id)
-    if not dispatch:
-        raise HTTPException(404, "Despacho no encontrado")
+def rerun(
+    dispatch_id: uuid.UUID,
+    tenant: TenantContext = Depends(require_tenant),
+    db: Session = Depends(get_db),
+):
+    dispatch = _dispatch_for_tenant(db, dispatch_id, tenant)
     job = _queue(db, dispatch)
     return {"job_id": str(job.id), "dispatch_id": str(dispatch.id)}
 
@@ -377,11 +496,10 @@ def correct_field(
     dispatch_id: uuid.UUID,
     field_path: str,
     request: CorrectionRequest,
+    tenant: TenantContext = Depends(require_tenant),
     db: Session = Depends(get_db),
 ):
-    dispatch = db.get(Dispatch, dispatch_id)
-    if not dispatch:
-        raise HTTPException(404, "Despacho no encontrado")
+    dispatch = _dispatch_for_tenant(db, dispatch_id, tenant)
     document_id, sep, path = field_path.partition(":")
     if not sep or not path:
         raise HTTPException(400, "La ruta debe ser document_id:ruta.del.campo.value")
@@ -389,8 +507,14 @@ def correct_field(
         doc_uuid = uuid.UUID(document_id)
     except ValueError as exc:
         raise HTTPException(400, "document_id inválido") from exc
-    document = db.get(Document, doc_uuid)
-    if not document or document.dispatch_id != dispatch.id:
+    document = db.scalar(
+        select(Document).where(
+            Document.id == doc_uuid,
+            Document.org_id == tenant.org_id,
+            Document.dispatch_id == dispatch.id,
+        )
+    )
+    if document is None:
         raise HTTPException(404, "Documento no encontrado")
     correction = FieldCorrection(
         org_id=dispatch.org_id,
@@ -414,8 +538,18 @@ def correct_field(
 
 
 @router.post("/exceptions/{exception_id}/accept-risk")
-def accept_risk(exception_id: uuid.UUID, request: RationaleRequest, db: Session = Depends(get_db)):
-    item = db.get(ExceptionResult, exception_id)
+def accept_risk(
+    exception_id: uuid.UUID,
+    request: RationaleRequest,
+    tenant: TenantContext = Depends(require_tenant),
+    db: Session = Depends(get_db),
+):
+    item = db.scalar(
+        select(ExceptionResult).where(
+            ExceptionResult.id == exception_id,
+            ExceptionResult.org_id == tenant.org_id,
+        )
+    )
     if not item:
         raise HTTPException(404, "Excepción no encontrada")
     item.accepted_rationale = request.rationale
@@ -429,12 +563,24 @@ def accept_risk(exception_id: uuid.UUID, request: RationaleRequest, db: Session 
         )
     )
     db.commit()
-    return {"status": "accepted", "notice": "Aceptación de demo sin control de autorización"}
+    return {
+        "status": "accepted",
+        "notice": "Aceptación de demo con alcance tenant; autenticación aún pendiente",
+    }
 
 
 @router.get("/documents/{document_id}/file")
-def document_file(document_id: uuid.UUID, db: Session = Depends(get_db)):
-    document = db.get(Document, document_id)
+def document_file(
+    document_id: uuid.UUID,
+    tenant: TenantContext = Depends(require_tenant),
+    db: Session = Depends(get_db),
+):
+    document = db.scalar(
+        select(Document).where(
+            Document.id == document_id,
+            Document.org_id == tenant.org_id,
+        )
+    )
     if not document:
         raise HTTPException(404, "Documento no encontrado")
     return FileResponse(
@@ -445,12 +591,13 @@ def document_file(document_id: uuid.UUID, db: Session = Depends(get_db)):
 @router.get("/dispatches/{dispatch_id}/exports/reconciliation.xlsx")
 def export_xlsx(
     dispatch_id: uuid.UUID,
+    tenant: TenantContext = Depends(require_tenant),
     db: Session = Depends(get_db),
     settings: Settings = Depends(get_settings),
 ):
-    state = _state(db, dispatch_id)
+    state = _state(db, dispatch_id, tenant)
     content = build_workbook(state)
-    dispatch = db.get(Dispatch, dispatch_id)
+    dispatch = _dispatch_for_tenant(db, dispatch_id, tenant)
     _record_artifact(db, settings, dispatch, "reconciliation_xlsx", "xlsx", content)
     return Response(
         content,
@@ -464,12 +611,13 @@ def export_xlsx(
 @router.get("/dispatches/{dispatch_id}/exports/din.json")
 def export_din_json(
     dispatch_id: uuid.UUID,
+    tenant: TenantContext = Depends(require_tenant),
     db: Session = Depends(get_db),
     settings: Settings = Depends(get_settings),
 ):
-    payload = din_payload(_state(db, dispatch_id))
+    payload = din_payload(_state(db, dispatch_id, tenant))
     content = json.dumps(payload, ensure_ascii=False, indent=2).encode("utf-8")
-    dispatch = db.get(Dispatch, dispatch_id)
+    dispatch = _dispatch_for_tenant(db, dispatch_id, tenant)
     _record_artifact(db, settings, dispatch, "din_json", "json", content)
     return Response(
         content,
@@ -481,11 +629,12 @@ def export_din_json(
 @router.get("/dispatches/{dispatch_id}/exports/din.pdf")
 def export_din_pdf(
     dispatch_id: uuid.UUID,
+    tenant: TenantContext = Depends(require_tenant),
     db: Session = Depends(get_db),
     settings: Settings = Depends(get_settings),
 ):
-    content = render_din_pdf(_state(db, dispatch_id))
-    dispatch = db.get(Dispatch, dispatch_id)
+    content = render_din_pdf(_state(db, dispatch_id, tenant))
+    dispatch = _dispatch_for_tenant(db, dispatch_id, tenant)
     _record_artifact(db, settings, dispatch, "din_pdf", "pdf", content)
     return Response(
         content,

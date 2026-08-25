@@ -241,7 +241,12 @@ def _persist_run(
 
 
 def _persist_outcome(db: Session, job: Job, outcome: DocumentOutcome) -> tuple[int, int, Decimal]:
-    document = db.get(Document, outcome.document_id)
+    document = db.scalar(
+        select(Document).where(
+            Document.id == outcome.document_id,
+            Document.org_id == job.org_id,
+        )
+    )
     if document is None:
         raise ValueError(f"document not found: {outcome.document_id}")
     document.doc_type = outcome.doc_type.value
@@ -262,10 +267,12 @@ def _persist_outcome(db: Session, job: Job, outcome: DocumentOutcome) -> tuple[i
 
 
 def _latest_extractions(
-    db: Session, dispatch_id: uuid.UUID
+    db: Session, dispatch_id: uuid.UUID, org_id: uuid.UUID
 ) -> list[tuple[Document, ExtractionRun]]:
     documents = db.scalars(
-        select(Document).where(Document.dispatch_id == dispatch_id).order_by(Document.uploaded_at)
+        select(Document)
+        .where(Document.org_id == org_id, Document.dispatch_id == dispatch_id)
+        .order_by(Document.uploaded_at)
     ).all()
     output = []
     for document in documents:
@@ -273,6 +280,7 @@ def _latest_extractions(
             select(ExtractionRun)
             .where(
                 ExtractionRun.document_id == document.id,
+                ExtractionRun.org_id == org_id,
                 ExtractionRun.status == "done",
                 ExtractionRun.parser != "classification",
             )
@@ -298,11 +306,13 @@ def _set_path(payload: dict, path: str, value) -> None:
         current[leaf] = value
 
 
-def build_bundle(db: Session, dispatch_id: uuid.UUID) -> tuple[DispatchBundle, list[dict]]:
-    extracted = _latest_extractions(db, dispatch_id)
+def build_bundle(
+    db: Session, dispatch_id: uuid.UUID, org_id: uuid.UUID
+) -> tuple[DispatchBundle, list[dict]]:
+    extracted = _latest_extractions(db, dispatch_id, org_id)
     corrections = db.scalars(
         select(FieldCorrection)
-        .where(FieldCorrection.dispatch_id == dispatch_id)
+        .where(FieldCorrection.org_id == org_id, FieldCorrection.dispatch_id == dispatch_id)
         .order_by(FieldCorrection.created_at)
     ).all()
     correction_map: dict[str, list[FieldCorrection]] = {}
@@ -349,7 +359,12 @@ def build_bundle(db: Session, dispatch_id: uuid.UUID) -> tuple[DispatchBundle, l
 
 
 def process_job(db: Session, job: Job, settings: Settings) -> None:
-    dispatch = db.get(Dispatch, job.dispatch_id)
+    dispatch = db.scalar(
+        select(Dispatch).where(
+            Dispatch.id == job.dispatch_id,
+            Dispatch.org_id == job.org_id,
+        )
+    )
     if not dispatch:
         raise ValueError("dispatch not found")
     job.status = "running"
@@ -359,7 +374,7 @@ def process_job(db: Session, job: Job, settings: Settings) -> None:
     db.commit()
     documents = db.scalars(
         select(Document)
-        .where(Document.dispatch_id == dispatch.id)
+        .where(Document.org_id == job.org_id, Document.dispatch_id == dispatch.id)
         .order_by(Document.uploaded_at, Document.filename)
     ).all()
     tokens_in = tokens_out = 0
@@ -369,6 +384,7 @@ def process_job(db: Session, job: Job, settings: Settings) -> None:
         existing = db.scalar(
             select(ExtractionRun).where(
                 ExtractionRun.document_id == document.id,
+                ExtractionRun.org_id == job.org_id,
                 ExtractionRun.status == "done",
                 ExtractionRun.parser != "classification",
             )
@@ -395,7 +411,7 @@ def process_job(db: Session, job: Job, settings: Settings) -> None:
     job.stage = "reconciliation"
     job.progress = Decimal("0.90")
     db.commit()
-    bundle, effective_payloads = build_bundle(db, dispatch.id)
+    bundle, effective_payloads = build_bundle(db, dispatch.id, job.org_id)
     if bundle.instruction:
         dispatch.despacho_no = bundle.instruction.despacho_no.value
         dispatch.referencia = bundle.instruction.referencia.value
@@ -403,11 +419,21 @@ def process_job(db: Session, job: Job, settings: Settings) -> None:
     if config_version is None:
         raise ValueError("pinned jurisdiction config version not found")
     config = JurisdictionConfig.model_validate(config_version.content)
-    client_version = db.get(ClientConfigVersion, dispatch.client_config_version_id)
+    client_version = db.scalar(
+        select(ClientConfigVersion).where(
+            ClientConfigVersion.id == dispatch.client_config_version_id,
+            ClientConfigVersion.org_id == job.org_id,
+        )
+    )
     if client_version is None:
         raise ValueError("pinned client config version not found")
     client_config = ClientProfileConfig.model_validate(client_version.content)
-    fx_record = db.get(CustomsFxRate, dispatch.customs_fx_rate_id)
+    fx_record = db.scalar(
+        select(CustomsFxRate).where(
+            CustomsFxRate.id == dispatch.customs_fx_rate_id,
+            CustomsFxRate.org_id == job.org_id,
+        )
+    )
     if fx_record is None:
         raise ValueError("pinned customs FX rate not found")
     acceptance_date = dispatch.din_acceptance_date or date.fromisoformat(
@@ -439,6 +465,7 @@ def process_job(db: Session, job: Job, settings: Settings) -> None:
     input_hash = hashlib.sha256(input_json.encode("utf-8")).hexdigest()
     calc_run = db.scalar(
         select(CalculationRun).where(
+            CalculationRun.org_id == job.org_id,
             CalculationRun.dispatch_id == dispatch.id,
             CalculationRun.input_hash == input_hash,
         )

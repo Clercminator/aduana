@@ -59,6 +59,9 @@ export type CalculationLine = {
 export type DispatchState = {
   dispatch: {
     id: string;
+    organization_id: string;
+    organization_name: string;
+    organization_slug: string;
     despacho_no: string | null;
     referencia: string | null;
     status: string;
@@ -101,3 +104,34 @@ export type Job = {
 };
 
 export type FlatField = CitedValue & { path: string; label: string };
+
+export type DemoAgency = {
+  organization_id: string;
+  slug: string;
+  name: string;
+  client: string;
+  client_label: string;
+  branding: {
+    short_name: string;
+    primary_color: string;
+    accent_color: string;
+  };
+  policy: {
+    insurance_mode: string;
+    policy_rate: string | null;
+    coverage_pct: string;
+    allocation_basis: string;
+    default_incoterm: string;
+    transport_document: string;
+  };
+};
+
+export type DemoCatalog = {
+  agencies: DemoAgency[];
+  upload_limits: {
+    max_files: number;
+    max_file_bytes: number;
+    max_batch_bytes: number;
+    max_pdf_pages: number;
+  };
+};

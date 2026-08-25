@@ -6,7 +6,7 @@ artefactos provisionales para revisión humana. El repositorio incluye la aplica
 completa, cuatro expedientes deterministas y un pack de realismo documental; no es solo un
 dataset.
 
-> **Estado al 24 de agosto de 2026:** demo funcional para Chile, ejecutable localmente con
+> **Estado al 25 de agosto de 2026:** demo funcional para Chile, ejecutable localmente con
 > Docker y validada contra fixtures sintéticos. **No está lista para producción ni para
 > presentar una DIN.** El código se publica en
 > `https://github.com/Clercminator/aduana`; una publicación en GitHub no equivale a un
@@ -40,13 +40,30 @@ se contradigan. Este README describe lo que existe realmente hoy y qué falta.
 - Scenario C ahora contiene 45 PDFs y 40 facturas/DIN; Scenario D prueba equivalencia CIF→FOB;
   Scenario E aporta 12 plantillas de proveedor, timbres y dos PDFs de foto sin capa de texto.
 
+### Preparación práctica para la reunión implementada el 25-08-2026
+
+- La demo incluye dos agencias sintéticas seleccionables: **IMR Demo** y **Pacífico Demo**.
+  Cada una carga su propia organización, cliente, branding, póliza y defaults desde YAML;
+  cambiar de agencia no requiere modificar código.
+- Todas las rutas de negocio exigen contexto de organización (`X-Org-ID`; `org_id` en enlaces
+  descargables), consultan recursos por `org_id` y tienen pruebas que bloquean el acceso
+  cruzado. Es una frontera demostrable de datos, no autenticación productiva.
+- Los documentos y artefactos se separan por organización y las versiones de cliente
+  pertenecen explícitamente a una organización en la base.
+- El intake acepta solo PDFs válidos y aplica límites configurables de cantidad, tamaño por
+  archivo, tamaño del lote y páginas, antes de crear el despacho. Los errores se muestran en
+  la interfaz con un mensaje concreto.
+- GitHub Actions ejecuta formato/lint, 51 pruebas Python, build y auditoría del frontend, y
+  el E2E completo contra API, worker y PostgreSQL en una pila Docker aislada.
+
 ### Qué ya está construido
 
 - **Backend y persistencia:** FastAPI, Pydantic v2, SQLAlchemy 2, Alembic y PostgreSQL 16.
   Hay API y worker separados; el worker reclama trabajos persistidos y el estado sobrevive
   reinicios de los procesos.
-- **Intake:** carga múltiple de PDFs, carga incremental a un despacho existente, deduplicado
-  por SHA-256 dentro del despacho, almacenamiento local y cuatro escenarios precargados A/B/C/D.
+- **Intake:** carga múltiple de PDFs, carga incremental a un despacho existente, validación
+  de tipo/tamaño/páginas, deduplicado por SHA-256 dentro del despacho, almacenamiento local
+  por organización y cuatro escenarios precargados A/B/C/D.
 - **Lectura documental:** seis tipos admitidos (instrucción, B/L, factura, packing list,
   seguro y certificado de origen), clasificación por contenido y extracción estructurada
   con valor, confianza, evidencia y página.
@@ -71,9 +88,10 @@ se contradigan. Este README describe lo que existe realmente hoy y qué falta.
   DIN provisional JSON/PDF por factura. Los
   artefactos guardan hashes de contenido/configuración y los documentos fiscales llevan una
   advertencia explícita de demo.
-- **Interfaz:** React 19, TypeScript, Vite, `react-pdf`, vista responsive, ayuda para la demo,
-  progreso con porcentaje/tiempo, aviso persistente de entorno de demostración y el logo
-  oficial IMR derivado de `logo v1.jpg` en `web/src/assets/imr-logo.png`.
+- **Interfaz:** React 19, TypeScript, Vite, `react-pdf`, selector y tema por agencia, vista
+  responsive, ayuda para la demo, progreso con porcentaje/tiempo, errores de carga visibles,
+  aviso persistente de entorno de demostración y el logo oficial IMR derivado de
+  `logo v1.jpg` en `web/src/assets/imr-logo.png`.
 - **Fixtures y pruebas:** A limpio, B con siete excepciones, C con 45 PDFs/40 facturas, D CIF
   y E de realismo documental, ground truth, pruebas unitarias/integración y Playwright.
 
@@ -113,8 +131,9 @@ trabajos, cálculos, excepciones, eventos de auditoría y artefactos generados.
    sin reescribir silenciosamente el dato documental.
 5. Cada corrección es anexada con motivo; no sobrescribir la extracción original. Conservar
    hashes, versión de prompt/esquema/configuración y eventos de auditoría.
-6. Toda tabla propiedad de un cliente lleva `org_id`, aunque la demo solo inicializa una
-   organización fija. No confundir esa separación de datos con autenticación implementada.
+6. Toda tabla propiedad de un cliente lleva `org_id`. La demo inicializa dos organizaciones
+   configuradas y exige su contexto en la API, pero el encabezado puede ser enviado por
+   cualquiera: no confundir aislamiento por consulta con autenticación/autorización.
 7. Los artefactos DIN deben seguir marcados `BORRADOR DEMO - NO APTO PARA PRESENTACIÓN.`
    hasta completar la validación experta y operativa descrita al final.
 
@@ -131,12 +150,14 @@ trabajos, cálculos, excepciones, eventos de auditoría y artefactos generados.
 | `app/adapters/` | Excel de prorrateo y DIN provisional JSON/PDF. |
 | `app/db/` + `migrations/` | Modelos SQLAlchemy, sesión y esquema Alembic inicial. |
 | `jurisdictions/` | Configuración Chile y fixture de generalización Perú. |
-| `clients/` | Perfiles de cliente versionados; hoy Falabella y su póliza 2026. |
+| `agencies/` | Catálogo de organizaciones demo, branding y cliente asociado. |
+| `clients/` | Perfiles de cliente versionados por organización; Falabella y Pacífico sintético. |
 | `web/src/` | SPA React: intake, progreso, revisión, PDF, excepciones y cálculos. |
 | `web/tests/` | Playwright end-to-end contra la pila Docker. |
 | `fixtures/` | Escenarios A/B/C/D, pack E, ground truth y respuesta financiera esperada. |
 | `scripts/` | Reset, reporte y regeneración determinista de answer key y fixtures C/D/E. |
 | `docs/GUIA_DEMO_7_MINUTOS.md` | Guion comercial honesto y límites que deben comunicarse. |
+| `.github/workflows/ci.yml` | CI de backend, frontend, auditorías y Docker E2E. |
 | `PROJECT_BRIEF.md` | Especificación de arquitectura, dominio y alcance original. |
 
 ### Contrato HTTP implementado
@@ -144,6 +165,7 @@ trabajos, cálculos, excepciones, eventos de auditoría y artefactos generados.
 | Método y ruta | Uso |
 |---|---|
 | `GET /api/health` | Healthcheck. |
+| `GET /api/demo/agencies` | Catálogo público de perfiles sintéticos y límites para el selector. |
 | `POST /api/intake/batches` | Crear despacho desde una carga multipart y encolar trabajo. |
 | `POST /api/demo/load/{A\|B\|C\|D}` | Cargar un escenario sintético y encolar trabajo. |
 | `POST /api/dispatches/{id}/documents` | Agregar documentos y reprocesar. |
@@ -157,8 +179,12 @@ trabajos, cálculos, excepciones, eventos de auditoría y artefactos generados.
 | `GET /api/dispatches/{id}/exports/din.json` | Descargar DIN provisional estructurada. |
 | `GET /api/dispatches/{id}/exports/din.pdf` | Descargar resumen DIN provisional. |
 
-FastAPI publica además OpenAPI/Swagger en `/docs`. El contrato actual no tiene login,
-sesiones, roles ni autorización por usuario; se limita a la organización demo fija.
+Salvo healthcheck y catálogo, las rutas exigen `X-Org-ID`. Los enlaces de PDF/exportación
+usan `org_id` porque el navegador no puede adjuntar un encabezado al abrirlos. Si ambos se
+envían y difieren, la API rechaza la solicitud. FastAPI publica además OpenAPI/Swagger en
+`/docs`. El contrato actual no tiene login, sesiones, roles ni autorización por usuario;
+el contexto evita cruces accidentales y hace comprobable el aislamiento de la demo, pero no
+impide que un cliente malicioso suplante el UUID de otra organización.
 
 ### Configuración
 
@@ -173,8 +199,11 @@ debe copiarse a documentación ni compartirse con una LLM.
 | `CLASSIFY_MODEL` / `EXTRACT_MODEL` | Modelos fijados para cada etapa; no hay fallback silencioso. |
 | `EXTRACT_MAX_TOKENS` | Techo de salida para extracción, 12.000 por defecto. |
 | `DOCUMENT_CONCURRENCY` | Paralelismo por trabajo, 4 por defecto y máximo 12. |
-| `DOCUMENT_ROOT` / `ARTIFACT_ROOT` | Almacenamiento persistente de entrada y salidas. |
-| `FIXTURE_ROOT` / `JURISDICTION_ROOT` / `CLIENT_ROOT` | Fixtures y YAML versionados. |
+| `DOCUMENT_ROOT` / `ARTIFACT_ROOT` | Almacenamiento persistente, separado internamente por organización. |
+| `FIXTURE_ROOT` / `JURISDICTION_ROOT` / `AGENCY_ROOT` / `CLIENT_ROOT` | Fixtures y YAML versionados. |
+| `MAX_UPLOAD_FILES` | Cantidad máxima de PDFs por carga; 60 en la demo. |
+| `MAX_UPLOAD_FILE_BYTES` / `MAX_UPLOAD_BATCH_BYTES` | Máximos por PDF (25 MiB) y lote (250 MiB). |
+| `MAX_PDF_PAGES` | Máximo por PDF; 200 páginas en la demo. |
 | `CORS_ORIGINS` | Orígenes autorizados del frontend local. |
 | `DEMO_FX_RATE` / `DEMO_FX_SOURCE` / `DEMO_FX_DATE` | Dólar aduanero mensual ficticio. |
 | `DEMO_DIN_ACCEPTANCE_DATE` | Fecha usada para validar que el FX pertenece al mes correcto. |
@@ -221,16 +250,32 @@ validación legal, aduanera ni productiva.
   con un defecto del producto. La pila normal conserva `auto`/`openrouter`.
 - Playwright usa un worker porque la suite comparte una cola y una base. Paralelizar archivos
   de prueba contra un único worker de aplicación introducía esperas artificiales.
+- La CI de GitHub reproduce automáticamente las comprobaciones de backend/frontend y levanta
+  una pila Docker limpia para el E2E en cada cambio a `main` y en cada pull request.
+
+**Corregido para la reunión del 25-08-2026 — base multiagencia y carga segura**
+
+- Dos perfiles de agencia en `agencies/` prueban selección sin código específico: nombre,
+  colores, cliente, jurisdicción y política se cargan desde configuración versionada.
+- Las versiones de cliente ya pertenecen a una organización; API, worker, documentos y
+  artefactos conservan ese contexto. Las pruebas verifican que una organización recibe 404
+  al consultar un despacho o trabajo de la otra y 400 si omite el contexto.
+- El intake valida extensión, MIME, firma PDF, estructura legible, páginas, cantidad y bytes
+  por archivo/lote antes de persistir. Esto reduce errores de demo y cargas accidentales;
+  todavía no sustituye antivirus, cuotas comerciales ni análisis de contenido hostil.
+- La UI conserva un despacho independiente por organización, muestra la agencia activa y
+  aplica su branding y resumen de política sin hardcodear el cliente en React.
 
 **P0 SaaS aún abierto — aislamiento y confianza**
 
-- `org_id` existe en las tablas, pero no hay identidad, sesión, roles ni middleware de
-  autorización; varios endpoints obtienen recursos por UUID sin demostrar pertenencia a la
-  organización. Hace falta aislamiento tenant por consulta, pruebas de acceso cruzado y,
-  preferiblemente, defensa adicional en PostgreSQL antes de alojar varias agencias.
-- La organización, Chile, Falabella y los documentos esperados se inicializan para la demo.
-  El perfil de cliente no declara todavía a qué organización pertenece y el almacenamiento
-  usa raíces globales. Onboarding, configuración, cuotas y namespaces deben ser por tenant.
+- La API ya exige contexto de organización, filtra todos los recursos de negocio y separa
+  storage/configuración por `org_id`, con pruebas de acceso cruzado. Sin embargo, no hay
+  identidad, sesión ni roles: `X-Org-ID` es declarativo y puede falsificarse. Antes de alojar
+  agencias reales se necesita un proveedor de identidad, membresías/roles y que el servidor
+  derive el tenant de credenciales verificadas, idealmente con RLS/defensa adicional en
+  PostgreSQL.
+- Los dos perfiles se provisionan desde YAML al arrancar. Falta onboarding administrado,
+  rotación segura de configuración, cuotas por tenant y un flujo de alta/baja auditable.
 - La aceptación de riesgo registra justificación, pero no un actor autenticado. Correcciones,
   aprobaciones, descargas y eventos necesitan identidad verificable y permisos por rol.
 - No existe aún política implementada de retención/borrado, cifrado administrado, secretos,
@@ -261,9 +306,10 @@ validación legal, aduanera ni productiva.
 - La migración inicial llama dinámicamente a `Base.metadata.create_all`; no es un historial
   DDL inmutable. Sustituirla por operaciones Alembic explícitas y probar upgrade desde base
   vacía, upgrade incremental y compatibilidad/rollback definido.
-- La carga no impone todavía tamaño máximo total/por archivo, cuota tenant, límite de páginas,
-  antivirus, backpressure ni deduplicación global segura. También faltan política de reintento,
-  dead-letter, cancelación, idempotencia bajo fallos y recuperación visible al operador.
+- La carga ya impone tipo PDF, tamaño máximo total/por archivo, cantidad y límite de páginas.
+  Faltan cuota tenant, antivirus/sandbox, backpressure y deduplicación global segura. También
+  faltan política de reintento, dead-letter, cancelación, idempotencia bajo fallos y
+  recuperación visible al operador.
 - `DOCUMENT_CONCURRENCY` limita documentos dentro de un trabajo, pero un único worker no es
   una arquitectura de escala horizontal. Medir múltiples despachos, locking, prioridades,
   cuotas del proveedor, 429, costo y throughput antes de prometer capacidad.
@@ -275,8 +321,9 @@ validación legal, aduanera ni productiva.
 
 **P2 comercial/plataforma aún abierto**
 
-- Onboarding autoservicio, invitaciones, branding por agencia, administración de usuarios,
-  planes, medición de consumo, facturación, soporte, analítica y límites de plan no existen.
+- Existe branding configurable básico para dos agencias demo. Onboarding autoservicio,
+  invitaciones, gestión de logos/plantillas, administración de usuarios, planes, medición de
+  consumo, facturación, soporte, analítica y límites de plan no existen.
 - El proveedor/modelo, prompts, precisión por campo y costo necesitan un set de evaluación
   versionado y gates de regresión. No exponer cifras de precisión, ahorro o SLA hasta medirlas
   con expedientes reales anonimizados y revisión humana autorizada.
@@ -318,8 +365,9 @@ agencia y jurisdicción, (5) evaluación y escala, y recién después (6) billin
   oficial y no existe presentación, pago ni transmisión a Aduanas.
 - Diseñar despliegue productivo, HTTPS, dominios, observabilidad, alertas, backups y plan de
   recuperación. Hoy está probada la ejecución local por Docker, no un entorno productivo.
-- Establecer versionado semántico, CI protegida, releases reproducibles y procedencia de
-  imágenes. El repositorio publicado es solo el punto de partida.
+- Proteger `main` exigiendo la CI ya incluida, y establecer versionado semántico, releases
+  reproducibles y procedencia de imágenes. El workflow existe; las reglas de protección y
+  el proceso de release aún no.
 
 **P1, antes de prometer capacidad o confiabilidad operativa**
 
@@ -337,7 +385,7 @@ agencia y jurisdicción, (5) evaluación y escala, y recién después (6) billin
 **Diferido deliberadamente / fuera del prototipo**
 
 - Inferir códigos HS desde descripciones; regímenes especiales; múltiples monedas por B/L;
-  varios B/L o despachos parciales; UI multi-organización.
+  varios B/L o despachos parciales; administración multi-organización (el selector demo sí existe).
 - Integraciones directas con Aduanas, transportistas/forwarders, EDI, pagos, presentación o
   acciones ejecutadas en nombre del usuario.
 - Soporte productivo para Perú. `peru.yaml` únicamente demuestra que la pila de tributos es
@@ -431,25 +479,31 @@ documentos reales hasta aprobar privacidad, retención y condiciones del proveed
 
 ### Última verificación conocida
 
-Ejecutada el **24 de agosto de 2026** después de implementar los cambios confirmados:
+Ejecutada el **25 de agosto de 2026** después de implementar la preparación para la reunión:
 
 | Comprobación | Resultado |
 |---|---|
-| `python -m pytest -q` | **PASS — 44 pruebas**. Incluye cifras A/B, factura multilínea sin doble conteo, datos financieros obligatorios, selección/alias de acuerdos, EXC-12, CIF, FX mensual, seguro, realismo documental y artefactos. |
+| `python -m pytest -q` | **PASS — 51 pruebas**. Además de dominio/finanzas, cubre los dos perfiles, pertenencia organizacional y rechazo de PDF/tamaño/lote/páginas inválidos. |
+| `ruff format --check app tests scripts migrations` | **PASS — formato consistente**. |
 | `ruff check app tests migrations scripts` | **PASS — sin hallazgos**. |
 | `npm run lint` | **PASS**. |
 | `npm run build` | **PASS — 1.849 módulos transformados**. |
 | Playwright de paginación | **PASS** en Chromium, 1536×1024 y 390×844 con API simulada: 40 DIN únicas aunque existan 41 líneas, página 2 correcta y sin errores de consola. |
 | Render PDF | **PASS** por inspección con `pypdfium2`: Scenario C generó 40 páginas; primera y última DIN legibles, completas y con advertencia de borrador. |
 | `docker compose ... config --quiet` | **PASS** para la pila normal y el override E2E; perfiles y volúmenes compartidos están montados en API/worker. |
-| `npm run test:e2e` completo | **PASS — 4 recorridos en 18,3 s** contra API, worker, PostgreSQL y volúmenes Docker nuevos con extractor local determinista. |
+| `npm run test:e2e` completo | **PASS — 6 recorridos en 23,1 s** contra API, worker, PostgreSQL y volúmenes Docker nuevos. Incluye Pacífico, bloqueo cruzado, contexto obligatorio y error de archivo no PDF. |
 | Dependencias | **PASS** — `pip check` sin dependencias rotas y `npm audit` con 0 vulnerabilidades. |
+| Migraciones | **PASS** — base PostgreSQL vacía actualizada hasta `0003_tenant_profiles`; dos organizaciones y sus perfiles versionados creados. |
 
 El plugin Browser no estaba disponible; el QA visual usó el Playwright instalado en `web/`.
 Se inspeccionaron las capturas desktop/móvil/completo-incompleto y las páginas 1/40 de la
 DIN. Los artefactos temporales no se agregaron al repositorio. El test real contra Scenario C
 permanece en `web/tests/workflow.spec.ts`; el test aislado de factura multilínea/paginación
 está en `web/tests/pagination.mock.spec.ts`.
+
+El workflow `.github/workflows/ci.yml` replica estas comprobaciones en GitHub. La ejecución
+local confirma sus comandos y la pila; el estado de una corrida remota solo debe declararse
+después de verla terminar en GitHub Actions.
 
 Comandos de verificación reproducibles:
 

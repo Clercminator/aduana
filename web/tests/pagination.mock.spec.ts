@@ -44,6 +44,9 @@ lines.push({ ...lines[0], description: "Segunda línea de la primera factura" })
 const state = {
   dispatch: {
     id: "dispatch-volume",
+    organization_id: "00000000-0000-0000-0000-000000000001",
+    organization_name: "IMR Tech · Agencia Demo",
+    organization_slug: "imr-demo",
     despacho_no: "700613",
     referencia: "54415CLFA/26J28-9",
     status: "review",
@@ -98,6 +101,31 @@ test("pagina líneas y cuenta una DIN por factura única", async ({ page }) => {
   page.on("console", (message) => {
     if (message.type() === "error") consoleErrors.push(message.text());
   });
+  await page.route("**/api/demo/agencies", (route) =>
+    route.fulfill({
+      json: {
+        agencies: [
+          {
+            organization_id: "00000000-0000-0000-0000-000000000001",
+            slug: "imr-demo",
+            name: "IMR Tech · Agencia Demo",
+            client: "FALABELLA_RETAIL",
+            client_label: "Falabella Retail",
+            branding: { short_name: "IMR Demo", primary_color: "#071B33", accent_color: "#008F83" },
+            policy: {
+              insurance_mode: "policy_rate",
+              policy_rate: "0.000462",
+              coverage_pct: "1.15",
+              allocation_basis: "invoice_value",
+              default_incoterm: "FOB",
+              transport_document: "direct_bl",
+            },
+          },
+        ],
+        upload_limits: { max_files: 60, max_file_bytes: 26214400, max_batch_bytes: 262144000, max_pdf_pages: 200 },
+      },
+    }),
+  );
   await page.route("**/api/demo/load/C", (route) =>
     route.fulfill({ json: { dispatch_id: "dispatch-volume", job_id: "job-volume", added: 45, duplicates: 0 } }),
   );

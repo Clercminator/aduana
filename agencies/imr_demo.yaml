@@ -1,0 +1,9 @@
+organization_id: 00000000-0000-0000-0000-000000000001
+slug: imr-demo
+name: IMR Tech · Agencia Demo
+client_profile: falabella.yaml
+client_label: Falabella Retail
+branding:
+  short_name: IMR Demo
+  primary_color: "#071B33"
+  accent_color: "#008F83"

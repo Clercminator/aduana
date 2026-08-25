@@ -35,6 +35,7 @@ services:
       - artifact_data:/data/artifacts
       - ./fixtures:/workspace/fixtures:ro
       - ./jurisdictions:/workspace/jurisdictions:ro
+      - ./agencies:/workspace/agencies:ro
       - ./clients:/workspace/clients:ro
     ports:
       - "8000:8000"
@@ -56,6 +57,7 @@ services:
       - artifact_data:/data/artifacts
       - ./fixtures:/workspace/fixtures:ro
       - ./jurisdictions:/workspace/jurisdictions:ro
+      - ./agencies:/workspace/agencies:ro
       - ./clients:/workspace/clients:ro
 
   web:

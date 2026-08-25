@@ -3,6 +3,9 @@ import path from "node:path";
 
 const fixtureRoot = path.resolve("..", "fixtures");
 const screenshotRoot = process.env.QA_SCREENSHOT_DIR;
+const imrOrgId = "00000000-0000-0000-0000-000000000001";
+const pacificoOrgId = "00000000-0000-0000-0000-000000000002";
+const apiRoot = "http://127.0.0.1:8000/api";
 
 test("carga múltiple, revisión, corrección, aceptación y exportaciones", async ({ page }) => {
   const consoleErrors: string[] = [];
@@ -85,4 +88,57 @@ test("escenario de 40 facturas pagina la vista y genera 40 DIN", async ({ page }
   await page.getByRole("button", { name: "Página siguiente" }).click();
   await expect(page.getByText("Líneas 21–40 de 40")).toBeVisible();
   await expect(page.getByRole("table").getByText("BN26010640", { exact: true })).toBeVisible();
+});
+
+test("cambia de agencia, aplica su perfil y bloquea acceso cruzado", async ({ page, request }) => {
+  await page.goto("/");
+  const agency = page.getByLabel("Agencia activa");
+  await agency.selectOption(pacificoOrgId);
+  await expect(page.getByText("Pacífico Imports (sintético)")).toBeVisible();
+  await expect(page.getByText("Póliza 0.0550 %")).toBeVisible();
+  await expect(page.getByText("Pacífico Demo")).toBeVisible();
+  if (screenshotRoot) {
+    await page.screenshot({ path: path.join(screenshotRoot, "pacifico-intake.png"), fullPage: true });
+  }
+
+  const loadResponse = page.waitForResponse(
+    (response) => response.url().endsWith("/api/demo/load/A") && response.request().method() === "POST",
+  );
+  await page.getByRole("button", { name: /escenario a/i }).click();
+  const created = await (await loadResponse).json() as { dispatch_id: string; job_id: string };
+  await expect(page.getByRole("heading", { name: "700611", exact: true })).toBeVisible({ timeout: 60_000 });
+  await expect(page.getByText(/Aduanas Pacífico · Agencia Demo/)).toBeVisible();
+
+  const ownState = await request.get(`${apiRoot}/dispatches/${created.dispatch_id}`, {
+    headers: { "X-Org-ID": pacificoOrgId },
+  });
+  expect(ownState.status()).toBe(200);
+  expect((await ownState.json()).dispatch.client).toBe("PACIFICO_IMPORTS_DEMO");
+
+  const crossTenant = await request.get(`${apiRoot}/dispatches/${created.dispatch_id}`, {
+    headers: { "X-Org-ID": imrOrgId },
+  });
+  expect(crossTenant.status()).toBe(404);
+
+  const crossTenantJob = await request.get(`${apiRoot}/jobs/${created.job_id}`, {
+    headers: { "X-Org-ID": imrOrgId },
+  });
+  expect(crossTenantJob.status()).toBe(404);
+
+  const missingContext = await request.get(`${apiRoot}/dispatches/${created.dispatch_id}`);
+  expect(missingContext.status()).toBe(400);
+  await expect(page.locator(".react-pdf__Page canvas")).toBeVisible();
+  if (screenshotRoot) {
+    await page.screenshot({ path: path.join(screenshotRoot, "pacifico-tenant.png"), fullPage: true });
+  }
+});
+
+test("rechaza archivos que no son PDF con un mensaje visible", async ({ page }) => {
+  await page.goto("/");
+  await page.locator('input[type="file"]').nth(1).setInputFiles({
+    name: "archivo-ejecutable.exe",
+    mimeType: "application/octet-stream",
+    buffer: Buffer.from("not a pdf"),
+  });
+  await expect(page.getByRole("alert")).toContainText("solo se permiten archivos .pdf");
 });

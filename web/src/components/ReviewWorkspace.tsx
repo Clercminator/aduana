@@ -1,6 +1,6 @@
 import { AlertTriangle, CheckCircle2, Download, FileDown, FilePlus2, FileText, RefreshCw, Search, Sheet } from "lucide-react";
 import { lazy, Suspense, useMemo, useRef, useState } from "react";
-import { API_ROOT, api } from "../api";
+import { API_ROOT, api, tenantAssetUrl } from "../api";
 import type { DispatchState, FlatField, Job, Rule } from "../types";
 import { CalculationTable } from "./CalculationTable";
 import { ExceptionsPanel } from "./ExceptionsPanel";
@@ -19,12 +19,13 @@ const docLabels: Record<string, string> = {
 
 type Props = {
   state: DispatchState;
+  orgId: string;
   lastJob: Job | null;
   onRefresh: () => Promise<void>;
   onJob: (jobId: string) => void;
 };
 
-export function ReviewWorkspace({ state, lastJob, onRefresh, onJob }: Props) {
+export function ReviewWorkspace({ state, orgId, lastJob, onRefresh, onJob }: Props) {
   const [selectedId, setSelectedId] = useState(state.documents[0]?.id || "");
   const [selectedPage, setSelectedPage] = useState(1);
   const [query, setQuery] = useState("");
@@ -52,13 +53,13 @@ export function ReviewWorkspace({ state, lastJob, onRefresh, onJob }: Props) {
   const declarationCount = new Set(calculation?.lines.map((line) => line.invoice) || []).size;
 
   async function correct(field: FlatField, value: string, reason: string) {
-    const result = await api.correct(state.dispatch.id, `${selected.id}:${field.path}.value`, value, reason);
+    const result = await api.correct(orgId, state.dispatch.id, `${selected.id}:${field.path}.value`, value, reason);
     onJob(result.job_id);
   }
 
   async function accept(rule: Rule, rationale: string) {
     if (!rule.exception_id) throw new Error("La excepción aún no tiene registro persistido");
-    await api.acceptRisk(rule.exception_id, rationale);
+    await api.acceptRisk(orgId, rule.exception_id, rationale);
     await onRefresh();
   }
 
@@ -94,15 +95,15 @@ export function ReviewWorkspace({ state, lastJob, onRefresh, onJob }: Props) {
   return (
     <main className="review-page">
       <section className="dispatch-banner">
-        <div><span className="kicker">Despacho en revisión</span><h1>{state.dispatch.despacho_no || "Sin número"}</h1><p>{state.dispatch.referencia || "Sin referencia"} · Chile · Importación para consumo</p></div>
+        <div><span className="kicker">Despacho en revisión</span><h1>{state.dispatch.despacho_no || "Sin número"}</h1><p>{state.dispatch.referencia || "Sin referencia"} · {state.dispatch.organization_name} · Chile</p></div>
         <div className={`banner-status ${reviewComplete ? "" : "incomplete"}`}>{reviewComplete ? <CheckCircle2 size={18} /> : <AlertTriangle size={18} />}<span>{reviewComplete ? "Expediente completo" : "Expediente incompleto"}<strong>{receivedTotal}/{expectedTotal} requeridos{lastJob?.elapsed_seconds ? ` · Procesado en ${lastJob.elapsed_seconds.toFixed(1)} s` : ""}</strong></span></div>
         <div className="export-cluster">
           <div className="master-export">
-            <a className="button secondary" href={`${exportBase}/reconciliation.xlsx`}><Sheet size={16} /> PRORRATEO MASTER completado</a>
+            <a className="button secondary" href={tenantAssetUrl(`${exportBase}/reconciliation.xlsx`, orgId)}><Sheet size={16} /> PRORRATEO MASTER completado</a>
             <small>Conserva las dos hojas operativas originales</small>
           </div>
-          <a className="button secondary" href={`${exportBase}/din.json`}><FileDown size={16} /> {declarationCount} DIN JSON</a>
-          <a className="button primary" href={`${exportBase}/din.pdf`}><Download size={16} /> {declarationCount} DIN PDF</a>
+          <a className="button secondary" href={tenantAssetUrl(`${exportBase}/din.json`, orgId)}><FileDown size={16} /> {declarationCount} DIN JSON</a>
+          <a className="button primary" href={tenantAssetUrl(`${exportBase}/din.pdf`, orgId)}><Download size={16} /> {declarationCount} DIN PDF</a>
         </div>
       </section>
 
@@ -116,7 +117,7 @@ export function ReviewWorkspace({ state, lastJob, onRefresh, onJob }: Props) {
           </details>
           <div className="document-list">{visibleDocs.map((document) => { const ready = document.doc_type !== "unknown" && document.extraction_status === "done"; return <button className={`document-item ${document.id === selected.id ? "selected" : ""}`} key={document.id} onClick={() => { setSelectedId(document.id); setSelectedPage(1); }}><FileText size={18} /><span><strong>{docLabels[document.doc_type || ""] || (document.doc_type === "unknown" ? "Sin clasificar" : "Documento")}</strong><small title={document.filename}>{document.filename}</small></span>{ready ? <CheckCircle2 size={15} className="doc-ok" /> : <AlertTriangle size={15} className="doc-error" />}</button>; })}</div>
           <button className="button add-files" onClick={() => addRef.current?.click()}><FilePlus2 size={16} /> Agregar documentos</button>
-          <input ref={addRef} className="visually-hidden" type="file" accept="application/pdf" multiple onChange={async (event) => { if (!event.target.files?.length) return; const result = await api.addDocuments(state.dispatch.id, event.target.files); onJob(result.job_id); }} />
+          <input ref={addRef} className="visually-hidden" type="file" accept="application/pdf" multiple onChange={async (event) => { if (!event.target.files?.length) return; const result = await api.addDocuments(orgId, state.dispatch.id, event.target.files); onJob(result.job_id); }} />
         </aside>
 
         <div className="center-stack">

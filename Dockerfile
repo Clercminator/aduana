@@ -9,6 +9,7 @@ RUN pip install --no-cache-dir .
 COPY alembic.ini ./
 COPY migrations ./migrations
 COPY jurisdictions ./jurisdictions
+COPY agencies ./agencies
 COPY clients ./clients
 COPY fixtures ./fixtures
 COPY ["PRORRATEO MASTER.xlsx", "./PRORRATEO MASTER.xlsx"]

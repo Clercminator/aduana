@@ -6,6 +6,7 @@ import pytest
 import yaml
 from pydantic import ValidationError
 
+from app.engine.agency import load_agency_catalog
 from app.engine.client import ClientProfileConfig, load_client_profile
 from app.engine.jurisdiction import JurisdictionConfig, load_jurisdiction
 
@@ -39,6 +40,15 @@ def test_client_profile_is_hashed_and_keeps_inferred_coverage_explicit():
     assert loaded.config.insurance.coverage_pct_provenance == "inferred"
     assert len(loaded.content_hash) == 64
     json.dumps(loaded.raw)
+
+
+def test_two_unique_agency_profiles_reference_valid_client_configuration():
+    agencies = load_agency_catalog(ROOT / "agencies")
+    assert {item.config.slug for item in agencies} == {"imr-demo", "pacifico-demo"}
+    assert len({item.config.organization_id for item in agencies}) == 2
+    for agency in agencies:
+        client = load_client_profile(ROOT / "clients" / agency.config.client_profile)
+        assert client.config.jurisdiction == "CL"
 
 
 def test_jurisdiction_config_rejects_unsafe_fractional_rates():

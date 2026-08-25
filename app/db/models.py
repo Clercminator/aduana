@@ -29,6 +29,7 @@ class Org(Base):
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True)
     name: Mapped[str] = mapped_column(String(200))
     slug: Mapped[str] = mapped_column(String(80), unique=True)
+    profile: Mapped[dict] = mapped_column(JSONB, default=dict)
 
 
 class JurisdictionConfigVersion(Base):
@@ -42,11 +43,13 @@ class JurisdictionConfigVersion(Base):
 
 class ClientConfigVersion(Base):
     __tablename__ = "client_config_version"
+    __table_args__ = (UniqueConstraint("org_id", "content_hash", name="uq_client_config_org_hash"),)
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    org_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("org.id"), index=True)
     client: Mapped[str] = mapped_column(String(80), index=True)
     jurisdiction: Mapped[str] = mapped_column(String(2), index=True)
     effective_from: Mapped[date] = mapped_column(Date)
-    content_hash: Mapped[str] = mapped_column(String(64), unique=True)
+    content_hash: Mapped[str] = mapped_column(String(64))
     content: Mapped[dict] = mapped_column(JSONB)
     loaded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 

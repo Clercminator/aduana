@@ -1,0 +1,13 @@
+client: PACIFICO_IMPORTS_DEMO
+jurisdiction: CL
+insurance:
+  mode: policy_rate
+  coverage_pct: 1.10
+  coverage_pct_provenance: confirmed
+  policy_rate: 0.000550
+  effective_from: 2026-01-01
+  note: "Synthetic annual policy created only to demonstrate tenant-specific configuration."
+allocation:
+  basis: invoice_value
+default_incoterm: FCA
+transport_document: house_bl

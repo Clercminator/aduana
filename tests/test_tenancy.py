@@ -1,6 +1,7 @@
 from app.db.models import (
     AuditEvent,
     CalculationRun,
+    ClientConfigVersion,
     CustomsFxRate,
     Dispatch,
     Document,
@@ -24,5 +25,6 @@ def test_every_tenant_owned_model_has_org_id():
         AuditEvent,
         GeneratedArtifact,
         CustomsFxRate,
+        ClientConfigVersion,
     ]:
         assert "org_id" in model.__table__.columns, model.__name__

@@ -1,0 +1,9 @@
+organization_id: 00000000-0000-0000-0000-000000000002
+slug: pacifico-demo
+name: Aduanas Pacífico · Agencia Demo
+client_profile: pacifico_imports_demo.yaml
+client_label: Pacífico Imports (sintético)
+branding:
+  short_name: Pacífico Demo
+  primary_color: "#18324A"
+  accent_color: "#C56A24"

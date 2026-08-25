@@ -9,6 +9,7 @@ El objetivo de esta reunión no es afirmar que las reglas aduaneras o el mapeo D
 ## Antes de comenzar
 
 - Abra `PRORRATEO MASTER.xlsx` y la aplicación.
+- Confirme que **IMR Demo** esté seleccionada antes de recorrer los números conocidos.
 - Use únicamente los escenarios sintéticos incluidos.
 - Empiece con el escenario A y luego reinicie para mostrar el escenario B.
 - No muestre arquitectura, modelos ni costos del proveedor salvo que se lo pregunten.
@@ -21,6 +22,14 @@ Muestre brevemente el archivo original.
 
 Abra la aplicación y señale el flujo visible: documentos, extracción con evidencia, controles, prorrateo y Excel.
 
+Si conviene demostrar que la base no está amarrada a una sola agencia, dedique como máximo
+20–30 segundos al selector: cambie a **Pacífico Demo**, muestre que cambian cliente, colores,
+póliza y defaults, y vuelva a **IMR Demo** antes de cargar el escenario A.
+
+> “El mismo motor puede cargar una configuración versionada distinta por agencia, sin
+> reescribir la aplicación. Esta pantalla demuestra la separación básica; usuarios, roles,
+> onboarding y facturación todavía son trabajo de producto.”
+
 ## 0:45–1:35 — Cargar documentos sin ordenar
 
 Seleccione **Escenario A · limpio**.
@@ -28,6 +37,9 @@ Seleccione **Escenario A · limpio**.
 > “El sistema recibe una instrucción y siete documentos del embarque sin depender de sus nombres. Los clasifica, extrae los campos necesarios y conserva la página y el texto que respaldan cada valor.”
 
 Durante el progreso, mencione que el tiempo, el modelo y el costo quedan registrados. No detenga la presentación en los detalles técnicos.
+
+Si le preguntan por archivos inválidos, la carga permite solo PDF y muestra los límites de
+cantidad, tamaño y páginas. No haga una prueba improvisada durante el guion principal.
 
 ## 1:35–2:35 — Revisar evidencia
 
@@ -101,4 +113,6 @@ Pregunte:
 - El dólar aduanero del demo es mensual, ficticio y manual.
 - La base de cobertura de seguro 115 % y la tasa teórica siguen pendientes de confirmación.
 - El sistema no presenta declaraciones ni concede autorizaciones.
+- El selector y el aislamiento por organización son de demostración. `X-Org-ID` todavía no
+  es autenticación; faltan login, membresías, roles y defensa de base de datos para SaaS real.
 - No deben cargarse documentos reales hasta aprobar privacidad, retención y condiciones del proveedor.

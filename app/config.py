@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     fixture_root: Path = Path("fixtures")
     jurisdiction_root: Path = Path("jurisdictions")
     client_root: Path = Path("clients")
+    agency_root: Path = Path("agencies")
     cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
     demo_fx_rate: str = "963.45"
     demo_fx_source: str = "dólar aduanero mensual ficticio del demo"
@@ -27,6 +28,10 @@ class Settings(BaseSettings):
     demo_org_id: str = "00000000-0000-0000-0000-000000000001"
     poll_seconds: float = Field(default=0.5, gt=0)
     document_concurrency: int = Field(default=4, ge=1, le=12)
+    max_upload_files: int = Field(default=60, ge=1, le=500)
+    max_upload_file_bytes: int = Field(default=25 * 1024 * 1024, ge=1024)
+    max_upload_batch_bytes: int = Field(default=250 * 1024 * 1024, ge=1024)
+    max_pdf_pages: int = Field(default=200, ge=1, le=5000)
 
     @property
     def cors_origin_list(self) -> list[str]:
