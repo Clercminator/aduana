@@ -6,7 +6,7 @@ artefactos provisionales para revisión humana. El repositorio incluye la aplica
 completa, cuatro expedientes deterministas y un pack de realismo documental; no es solo un
 dataset.
 
-> **Estado al 25 de agosto de 2026:** demo funcional para Chile, ejecutable localmente con
+> **Estado al 26 de agosto de 2026:** demo funcional para Chile, ejecutable localmente con
 > Docker y validada contra fixtures sintéticos. **No está lista para producción ni para
 > presentar una DIN.** El código se publica en
 > `https://github.com/Clercminator/aduana`; una publicación en GitHub no equivale a un
@@ -59,6 +59,24 @@ se contradigan. Este README describe lo que existe realmente hoy y qué falta.
 - GitHub Actions ejecuta formato/lint, 54 pruebas Python, build y auditoría del frontend, y
   el E2E completo contra API, worker y PostgreSQL en una pila Docker aislada.
 
+### Compuertas de extracción e implementación híbrida — 26-08-2026
+
+- Un documento sin extracción exitosa, un tipo requerido ausente o una clasificación bajo
+  el umbral ya no puede terminar como trabajo exitoso. El trabajo queda `needs_review`, el
+  despacho `review_required` y, si falta integridad documental, no se genera un cálculo nuevo.
+- Los campos financieros y de decisión definidos por cliente tienen un umbral de confianza
+  versionado. Un valor ausente o bajo el umbral permite como máximo un cálculo provisional,
+  exige corrección humana con motivo y bloquea Excel/DIN con HTTP 409.
+- `hybrid` es el backend normal: solo usa el parser local cuando el YAML del cliente declara
+  una plantilla y el contenido coincide; cualquier layout no reconocido cae a OpenRouter.
+  `local` sigue disponible para QA determinista y `openrouter` para forzar IA en todo el lote.
+- En PDFs escaneados, las anotaciones OCR devueltas durante clasificación se reenvían en la
+  conversación de extracción. Así se evita pedir una segunda conversión OCR cuando el
+  proveedor entrega una anotación reutilizable; el hecho queda registrado en telemetría.
+- La UI y la hoja `Trazabilidad` de Excel identifican el resultado como
+  `Extracción local determinista — demo` o `Extracción con IA — OpenRouter`, además de
+  registrar proveedor, parser/modelo y resultado de la compuerta.
+
 ### Qué ya está construido
 
 - **Backend y persistencia:** FastAPI, Pydantic v2, SQLAlchemy 2, Alembic y PostgreSQL 16.
@@ -70,9 +88,11 @@ se contradigan. Este README describe lo que existe realmente hoy y qué falta.
 - **Lectura documental:** seis tipos admitidos (instrucción, B/L, factura, packing list,
   seguro y certificado de origen), clasificación por contenido y extracción estructurada
   con valor, confianza, evidencia y página.
-- **Dos backends de extracción:** `local` procesa deterministicamente los PDFs sintéticos y
-  no consume un modelo; `openrouter` usa los modelos configurados. `auto` elige OpenRouter
-  solo cuando existe una clave y, en caso contrario, usa el extractor local.
+- **Estrategia de extracción explícita:** `local` procesa deterministicamente los PDFs
+  sintéticos; `openrouter` usa los modelos configurados; `hybrid` combina plantillas
+  declaradas por cliente con fallback OpenRouter para layouts no vistos. `auto` se conserva
+  por compatibilidad, pero no debe usarse como configuración SaaS porque decide por presencia
+  de clave y no por plantilla.
 - **Paralelismo y telemetría:** hasta cuatro documentos en paralelo por defecto, reintentos
   del cliente ante respuestas transitorias/malformadas, tokens, costo y latencia persistidos
   por extracción y agregados por trabajo. Esa telemetría no se envía al navegador.
@@ -197,7 +217,7 @@ debe copiarse a documentación ni compartirse con una LLM.
 | Variable | Función / valor de demo |
 |---|---|
 | `DATABASE_URL` | Conexión PostgreSQL. |
-| `EXTRACTION_BACKEND` | `auto`, `local` u `openrouter`. |
+| `EXTRACTION_BACKEND` | `hybrid` (normal), `local` (QA), `openrouter` (IA forzada) o `auto` (compatibilidad). |
 | `OPENROUTER_API_KEY` | Secreto opcional; vacío permite la demo local. |
 | `CLASSIFY_MODEL` / `EXTRACT_MODEL` | Modelos fijados para cada etapa; no hay fallback silencioso. |
 | `EXTRACT_MAX_TOKENS` | Techo de salida para extracción, 12.000 por defecto. |
@@ -415,8 +435,9 @@ No presentar esos seams como funcionalidades terminadas.
 - Docker Desktop abierto con el motor Linux activo.
 - Puertos 5173, 8000 y 5432 disponibles.
 - PowerShell ubicado en la raíz del repositorio, donde está `docker-compose.yml`.
-- No se necesita una clave de modelo: los escenarios sintéticos usan el extractor local
-  determinista mediante el override de QA. La pila normal usa el valor de `.env` o `auto`.
+- No se necesita una clave para el E2E sintético: el override de QA fuerza el extractor
+  local. La pila normal usa `hybrid`; para documentos sin plantilla necesita
+  `OPENROUTER_API_KEY`.
 
 ```powershell
 Set-Location "C:\ruta\al\repositorio\aduana"
@@ -439,7 +460,7 @@ Si las imágenes ya fueron construidas y solo quiere reiniciar más rápido:
 powershell -ExecutionPolicy Bypass -File .\scripts\preflight_demo.ps1 -SkipBuild
 ```
 
-Solo para probar deliberadamente el backend configurado en `.env` (`auto`/OpenRouter):
+Solo para probar deliberadamente el backend configurado en `.env` (`hybrid`/OpenRouter):
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\preflight_demo.ps1 -UseConfiguredBackend
@@ -468,15 +489,19 @@ privada del equipo; la interfaz busca la API en el mismo host, puerto 8000.
    Falabella. En cualquiera de las dos agencias puede cargar PDFs propios sintéticos.
 3. **Validar la carga.** La API acepta solo PDF legible y aplica límites de archivos, bytes
    por archivo/lote y páginas antes de crear el despacho.
-4. **Procesar.** API encola el trabajo; el worker clasifica, extrae con citas, normaliza a
-   FOB, ejecuta controles y calcula prorrateo/tributos con reglas deterministas.
-5. **Revisar.** La UI muestra documentos esperados/recibidos, PDF original, campos, página,
-   texto fuente, confianza, excepciones e impacto financiero.
-6. **Corregir o aceptar riesgo.** Toda corrección exige motivo y recalcula sin borrar la
+4. **Procesar.** API encola el trabajo; el worker clasifica y elige plantilla configurada o
+   fallback IA. En escaneos reutiliza el OCR de clasificación para extracción cuando el
+   proveedor devuelve anotaciones reutilizables.
+5. **Aplicar compuertas.** Antes de presentar el resultado, el worker exige cobertura de
+   documentos, extracción exitosa, clasificación suficiente y confianza mínima en campos
+   críticos. Sin integridad no calcula; con confianza baja calcula solo como provisional.
+6. **Revisar.** La UI muestra el modo de extracción, documentos esperados/recibidos, PDF
+   original, campos, página, texto fuente, confianza, excepciones e impacto financiero.
+7. **Corregir o aceptar riesgo.** Toda corrección exige motivo y recalcula sin borrar la
    extracción original. La aceptación de riesgo exige justificación y es solo de demo.
-7. **Exportar.** Descargue `PRORRATEO MASTER` completado y la DIN provisional JSON/PDF por
-   factura, siempre marcada como borrador no presentable.
-8. **Nuevo despacho.** El botón superior limpia la vista de la agencia activa sin borrar la
+8. **Exportar.** Solo con las compuertas aprobadas descargue `PRORRATEO MASTER` y la DIN
+   provisional JSON/PDF; una revisión pendiente bloquea tanto botones como endpoints.
+9. **Nuevo despacho.** El botón superior limpia la vista de la agencia activa sin borrar la
    trazabilidad persistida. El botón **Ayuda** abre el guion breve dentro de la aplicación.
 
 ### 4. Diagnóstico durante la reunión
@@ -548,8 +573,10 @@ docker compose -p aduanaqa -f docker-compose.yml -f docker-compose.e2e.yml down 
 
 ### Por qué tarda ese tiempo y no más o menos
 
-En modo OpenRouter cada PDF puede requerir dos solicitudes externas: clasificación basada
-en contenido y extracción estructurada con citas. Esas tareas de red y modelo se ejecutan
+En modo OpenRouter cada PDF normalmente requiere dos solicitudes externas: clasificación
+basada en contenido y extracción estructurada con citas. En escaneos siguen siendo dos
+solicitudes, pero la segunda reutiliza el resultado OCR de la primera cuando OpenRouter
+devuelve anotaciones de archivo, en vez de volver a OCRizar. Esas tareas de red y modelo se ejecutan
 ahora con **cuatro documentos en paralelo** (`DOCUMENT_CONCURRENCY=4`). Las escrituras en
 base de datos, la conciliación, el prorrateo y los tributos siguen siendo secuenciales y
 deterministas, para que el resultado no dependa del orden en que respondan los modelos.
@@ -595,8 +622,9 @@ docker compose exec -T api python scripts/report_usage.py --limit 10
 El detalle también permanece persistido por ejecución de extracción y por trabajo en
 PostgreSQL. Nunca exponga la clave de OpenRouter ni respuestas crudas al cliente.
 
-Para usar OpenRouter, copie `.env.example` a `.env`, agregue `OPENROUTER_API_KEY` y cambie
-`EXTRACTION_BACKEND=openrouter`. Los modelos por defecto son
+Para el flujo recomendado, copie `.env.example` a `.env`, agregue `OPENROUTER_API_KEY` y
+mantenga `EXTRACTION_BACKEND=hybrid`. Use `openrouter` solo para forzar IA incluso en
+plantillas conocidas. Los modelos por defecto son
 `google/gemini-3.7-flash` para extracción y `google/gemini-3.5-flash-lite` para
 clasificación; no hay cambio silencioso de modelo durante una ejecución. La concurrencia se
 configura con `DOCUMENT_CONCURRENCY` y el techo de salida para documentos largos con
@@ -605,11 +633,12 @@ documentos reales hasta aprobar privacidad, retención y condiciones del proveed
 
 ### Última verificación conocida
 
-Ejecutada el **25 de agosto de 2026** después de implementar la preparación para la reunión:
+Ejecutada el **26 de agosto de 2026** después de completar y volver a auditar los gates de
+extracción, el enrutamiento híbrido y la reutilización de OCR:
 
 | Comprobación | Resultado |
 |---|---|
-| `python -m pytest -q` | **PASS — 54 pruebas**. Además de dominio/finanzas, cubre perfiles/escenarios por agencia, pertenencia organizacional, reset seguro y rechazo de PDF/tamaño/lote/páginas inválidos. |
+| `python -m pytest -q` | **PASS — 64 pruebas**. Además de dominio/finanzas, cubre gates duros, bloqueo de exportación, selección de plantillas, cierre seguro del fallback sin clave, reutilización de anotaciones OCR, las dos etiquetas en Excel, perfiles/escenarios por agencia, pertenencia organizacional, reset seguro y rechazo de entradas inválidas. |
 | `ruff format --check app tests scripts migrations` | **PASS — formato consistente**. |
 | `ruff check app tests migrations scripts` | **PASS — sin hallazgos**. |
 | `npm run lint` | **PASS**. |
@@ -617,7 +646,9 @@ Ejecutada el **25 de agosto de 2026** después de implementar la preparación pa
 | Playwright de paginación | **PASS** en Chromium, 1536×1024 y 390×844 con API simulada: 40 DIN únicas aunque existan 41 líneas, página 2 correcta y sin errores de consola. |
 | Render PDF | **PASS** por inspección con `pypdfium2`: Scenario C generó 40 páginas; primera y última DIN legibles, completas y con advertencia de borrador. |
 | `docker compose ... config --quiet` | **PASS** para la pila normal y el override E2E; perfiles y volúmenes compartidos están montados en API/worker. |
-| `npm run test:e2e` completo | **PASS — 7 recorridos en 20,4 s** contra API, worker, PostgreSQL y volúmenes Docker nuevos. Incluye guard UI/API de fixtures, bloqueo cruzado, contexto obligatorio, archivo no PDF y recuperación de estado local obsoleto. |
+| `npm run test:e2e` completo | **PASS — 7 recorridos en 19,8 s**. Incluye Scenario C, expediente incompleto, 40 DIN paginadas, guard UI/API de fixtures, bloqueo cruzado, archivo no PDF y recuperación de estado local obsoleto. |
+| Scenario C y Excel | **PASS** — 45/45 documentos, 40 líneas financieras y gate aprobado; las hojas `Resumen` y `Trazabilidad` registran `Extracción local determinista — demo`. |
+| Gate negativo | **PASS** — un expediente escaneado no reconocido terminó en `needs_review`, sin cálculo, y el endpoint Excel respondió HTTP 409. |
 | Dependencias | **PASS** — `pip check` sin dependencias rotas y `npm audit` con 0 vulnerabilidades. |
 | Migraciones | **PASS** — base PostgreSQL vacía actualizada hasta `0003_tenant_profiles`; dos organizaciones y sus perfiles versionados creados. |
 | `scripts/preflight_demo.ps1` | **PASS** en Windows PowerShell 5.1: build/start con `--wait`, cuatro servicios sanos, API y dos agencias verificadas. |

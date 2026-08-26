@@ -11,3 +11,16 @@ allocation:
   basis: invoice_value
 default_incoterm: FCA
 transport_document: house_bl
+extraction:
+  classification_min_confidence: 0.90
+  financial_min_confidence: 0.95
+  templates: []
+  review_fields:
+    dispatch_instruction: [freight_amount, freight_currency]
+    bill_of_lading: [freight_amount, freight_currency, declared_value_total]
+    commercial_invoice:
+      [incoterm, currency, invoice_total, lines.*.hs_code, lines.*.quantity, lines.*.unit_price, lines.*.line_total]
+    packing_list:
+      [gross_weight_kg, net_weight_kg, lines.*.gross_weight_kg, lines.*.net_weight_kg]
+    insurance_certificate: [sum_insured, premium, premium_rate, currency]
+    certificate_of_origin: [items.*.hs_code]

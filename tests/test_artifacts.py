@@ -25,6 +25,13 @@ def _state(scenario_b, chile_cfg, falabella_cfg, demo_fx):
             "din_acceptance_date": "2026-08-18",
         },
         "documents": [],
+        "processing": {
+            "mode": "local",
+            "label": "Extracción local determinista — demo",
+            "providers": ["local"],
+            "ocr_reused": 0,
+        },
+        "review": {"blocked": False, "reason_count": 0, "reasons": []},
         "calculation": result,
         "audit": [],
         "calculation_run": {
@@ -61,12 +68,34 @@ def test_excel_has_required_sheets_and_totals(scenario_b, chile_cfg, falabella_c
     assert values["SHA-256 plantilla"] == template_hash_before
     assert values["SHA-256 configuración"] == "c" * 64
     assert values["SHA-256 cálculo"] == "d" * 64
+    assert values["Modo de extracción"] == "Extracción local determinista — demo"
     master = workbook["Prorrateo General"]
     assert master["F1"].value == "Prima póliza cliente"
     assert sum(Decimal(str(master[f"F{row}"].value)) for row in range(2, 5)) == Decimal("36.41")
     assert master["H2"].value == "=ROUND(G2*O2,2)"
     trace_values = [row[2].value for row in workbook["Trazabilidad"].iter_rows(min_row=2)]
     assert any(template_hash_before in str(value) for value in trace_values)
+    assert any("Extracción local determinista — demo" in str(value) for value in trace_values)
+
+
+def test_excel_records_openrouter_mode_in_summary_and_traceability(
+    scenario_b, chile_cfg, falabella_cfg, demo_fx
+):
+    state = _state(scenario_b, chile_cfg, falabella_cfg, demo_fx)
+    state["processing"] = {
+        "mode": "openrouter",
+        "label": "Extracción con IA — OpenRouter",
+        "providers": ["openrouter"],
+        "ocr_reused": 1,
+    }
+
+    workbook = load_workbook(io.BytesIO(build_workbook(state)), data_only=False)
+    summary = {row[0].value: row[1].value for row in workbook["Resumen"].iter_rows(min_row=2)}
+    trace_values = [row[2].value for row in workbook["Trazabilidad"].iter_rows(min_row=2)]
+
+    assert summary["Modo de extracción"] == "Extracción con IA — OpenRouter"
+    assert any("Extracción con IA — OpenRouter" in str(value) for value in trace_values)
+    assert any("ocr_reused=1" in str(value) for value in trace_values)
 
 
 def test_din_pdf_is_readable_and_watermarked(scenario_b, chile_cfg, falabella_cfg, demo_fx):

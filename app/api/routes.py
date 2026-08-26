@@ -36,6 +36,7 @@ from app.db.models import (
 from app.db.session import get_db
 from app.engine.agency import load_agency_catalog
 from app.engine.client import load_client_profile
+from app.engine.review import LOCAL_EXTRACTION_LABEL
 from app.services.bootstrap import ensure_demo_records
 from app.services.storage import LocalDocumentStore
 from app.services.upload_validation import UploadRejected, read_validated_uploads
@@ -372,7 +373,6 @@ def _state(db: Session, dispatch_id: uuid.UUID, tenant: TenantContext) -> dict[s
             .where(
                 ExtractionRun.document_id == doc.id,
                 ExtractionRun.org_id == tenant.org_id,
-                ExtractionRun.status == "done",
                 ExtractionRun.parser != "classification",
             )
             .order_by(ExtractionRun.created_at.desc())
@@ -392,6 +392,10 @@ def _state(db: Session, dispatch_id: uuid.UUID, tenant: TenantContext) -> dict[s
                 "file_url": f"/api/documents/{doc.id}/file?org_id={tenant.org_id}",
                 "extraction": extraction.payload if extraction else None,
                 "extraction_status": extraction.status if extraction else "pending",
+                "extraction_error": extraction.error if extraction else None,
+                "extraction_parser": extraction.parser if extraction else None,
+                "extraction_provider": extraction.provider if extraction else None,
+                "extraction_model": extraction.model if extraction else None,
             }
         )
     calc = db.scalar(
@@ -429,6 +433,29 @@ def _state(db: Session, dispatch_id: uuid.UUID, tenant: TenantContext) -> dict[s
         .where(AuditEvent.org_id == tenant.org_id, AuditEvent.dispatch_id == dispatch.id)
         .order_by(AuditEvent.created_at.desc())
     ).all()
+    gate_event = next((item for item in audit if item.action == "review_gate_evaluated"), None)
+    gate_payload = gate_event.payload if gate_event else {}
+    review = gate_payload.get("review") or {
+        "blocked": True,
+        "can_calculate": False,
+        "reason_count": 1,
+        "reasons": [
+            {
+                "category": "completeness",
+                "code": "GATE_NOT_EVALUATED",
+                "detail": "El expediente todavía no ha superado la compuerta de revisión",
+            }
+        ],
+    }
+    processing = gate_payload.get("processing") or {
+        "mode": "local",
+        "label": LOCAL_EXTRACTION_LABEL,
+        "providers": [],
+        "ocr_reused": 0,
+    }
+    if not review.get("can_calculate", False):
+        calculation = None
+        calc = None
     artifacts = db.scalars(
         select(GeneratedArtifact)
         .where(
@@ -459,6 +486,8 @@ def _state(db: Session, dispatch_id: uuid.UUID, tenant: TenantContext) -> dict[s
             "created_at": dispatch.created_at.isoformat(),
         },
         "documents": document_payloads,
+        "processing": processing,
+        "review": review,
         "calculation": calculation,
         "calculation_run": {
             "id": str(calc.id),
@@ -486,6 +515,14 @@ def _state(db: Session, dispatch_id: uuid.UUID, tenant: TenantContext) -> dict[s
             for item in artifacts
         ],
     }
+
+
+def _require_exportable(state: dict[str, Any]) -> None:
+    if state.get("review", {}).get("blocked", True):
+        raise HTTPException(
+            409,
+            "Exportación bloqueada: complete la revisión humana y resuelva las compuertas de confianza",
+        )
 
 
 @router.get("/dispatches/{dispatch_id}")
@@ -613,6 +650,7 @@ def export_xlsx(
     settings: Settings = Depends(get_settings),
 ):
     state = _state(db, dispatch_id, tenant)
+    _require_exportable(state)
     content = build_workbook(state)
     dispatch = _dispatch_for_tenant(db, dispatch_id, tenant)
     _record_artifact(db, settings, dispatch, "reconciliation_xlsx", "xlsx", content)
@@ -632,7 +670,9 @@ def export_din_json(
     db: Session = Depends(get_db),
     settings: Settings = Depends(get_settings),
 ):
-    payload = din_payload(_state(db, dispatch_id, tenant))
+    state = _state(db, dispatch_id, tenant)
+    _require_exportable(state)
+    payload = din_payload(state)
     content = json.dumps(payload, ensure_ascii=False, indent=2).encode("utf-8")
     dispatch = _dispatch_for_tenant(db, dispatch_id, tenant)
     _record_artifact(db, settings, dispatch, "din_json", "json", content)
@@ -650,7 +690,9 @@ def export_din_pdf(
     db: Session = Depends(get_db),
     settings: Settings = Depends(get_settings),
 ):
-    content = render_din_pdf(_state(db, dispatch_id, tenant))
+    state = _state(db, dispatch_id, tenant)
+    _require_exportable(state)
+    content = render_din_pdf(state)
     dispatch = _dispatch_for_tenant(db, dispatch_id, tenant)
     _record_artifact(db, settings, dispatch, "din_pdf", "pdf", content)
     return Response(

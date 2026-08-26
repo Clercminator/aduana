@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session
 
 from app.config import Settings
 from app.db.models import (
+    AuditEvent,
     CalculationRun,
     ClientConfigVersion,
     CustomsFxRate,
@@ -27,14 +28,15 @@ from app.db.models import (
     Job,
     JurisdictionConfigVersion,
 )
-from app.engine.client import ClientProfileConfig
+from app.engine.client import ClientExtractionConfig, ClientProfileConfig, DocumentTemplateConfig
 from app.engine.fx import validate_rate_period
 from app.engine.jurisdiction import JurisdictionConfig
 from app.engine.reconcile import reconcile
+from app.engine.review import evaluate_review_gates, extraction_mode
 from app.llm.classify import classify_text
 from app.llm.client import OpenRouterClient
-from app.llm.extract import SCHEMAS, extract_document
-from app.llm.local_extract import pdf_text
+from app.llm.extract import SCHEMAS
+from app.llm.local_extract import extract_local_text, pdf_text
 from app.schemas.domain import DispatchBundle, DocumentType
 
 
@@ -42,6 +44,7 @@ from app.schemas.domain import DispatchBundle, DocumentType
 class DocumentTask:
     document_id: uuid.UUID
     path: Path
+    extraction_config: ClientExtractionConfig | None = None
 
 
 @dataclass(frozen=True)
@@ -69,12 +72,27 @@ class DocumentOutcome:
     ocr_used: bool
     classification: PendingExtractionRun
     extraction: PendingExtractionRun | None = None
+    attempts: tuple[PendingExtractionRun, ...] = ()
 
 
-def _uses_openrouter(settings: Settings) -> bool:
-    return settings.extraction_backend == "openrouter" or (
-        settings.extraction_backend == "auto" and bool(settings.openrouter_api_key)
-    )
+def _match_template(
+    text: str, doc_type: DocumentType, config: ClientExtractionConfig | None
+) -> DocumentTemplateConfig | None:
+    if config is None:
+        return None
+    normalized = text.casefold()
+    for template in config.templates:
+        if doc_type.value not in template.document_types:
+            continue
+        if any(marker.casefold() in normalized for marker in template.match_any):
+            return template
+    return None
+
+
+def _local_classification(text: str, has_text: bool) -> tuple[DocumentType, Decimal, str | None]:
+    doc_type, signature = classify_text(text)
+    confidence = Decimal("0.999") if has_text and signature else Decimal("0")
+    return doc_type, confidence, signature
 
 
 def _failed_outcome(task: DocumentTask, error: Exception) -> DocumentOutcome:
@@ -99,14 +117,63 @@ def _process_document(task: DocumentTask, settings: Settings) -> DocumentOutcome
         return _failed_outcome(task, exc)
 
     classification_started = time.perf_counter()
-    if _uses_openrouter(settings):
+    local_type, local_confidence, signature = _local_classification(text, has_text)
+    template = _match_template(text, local_type, task.extraction_config)
+    local_requested = settings.extraction_backend == "local" or (
+        settings.extraction_backend == "auto" and not settings.openrouter_api_key
+    )
+    configured_local = settings.extraction_backend == "hybrid" and template is not None
+    if local_requested or configured_local:
+        doc_type = local_type
+        confidence = local_confidence
+        classification = PendingExtractionRun(
+            status="done" if signature else "failed",
+            parser="classification",
+            model="content-signature-v1",
+            provider="local",
+            payload={
+                "doc_type": doc_type.value,
+                "confidence": str(confidence),
+                "evidence": signature,
+            },
+            raw_response={
+                "text_layer": has_text,
+                "template_id": template.id if template else None,
+            },
+            latency_ms=int((time.perf_counter() - classification_started) * 1000),
+        )
+        raw_classification: dict[str, Any] | None = None
+        client = None
+    else:
+        if not settings.openrouter_api_key:
+            message = (
+                "No configured supplier template matched this layout and "
+                "OPENROUTER_API_KEY is not configured for the hybrid fallback"
+            )
+            return DocumentOutcome(
+                document_id=task.document_id,
+                doc_type=local_type,
+                classify_confidence=local_confidence,
+                page_count=pages,
+                has_text_layer=has_text,
+                ocr_used=False,
+                classification=PendingExtractionRun(
+                    status="failed",
+                    parser="classification",
+                    provider="hybrid",
+                    error=message,
+                    latency_ms=int((time.perf_counter() - classification_started) * 1000),
+                ),
+            )
         try:
-            with OpenRouterClient(settings) as client:
-                classified, raw_classification = client.classify_document(
-                    text, path=task.path if not has_text else None
-                )
-                classification_meta = client.usage(raw_classification)
+            client = OpenRouterClient(settings)
+            classified, raw_classification = client.classify_document(
+                text, path=task.path if not has_text else None
+            )
+            classification_meta = client.usage(raw_classification)
         except Exception as exc:
+            if client is not None:
+                client.close()
             return DocumentOutcome(
                 document_id=task.document_id,
                 doc_type=DocumentType.UNKNOWN,
@@ -137,24 +204,9 @@ def _process_document(task: DocumentTask, settings: Settings) -> DocumentOutcome
             cost_usd=Decimal(str(classification_meta["cost_usd"])),
             latency_ms=int((time.perf_counter() - classification_started) * 1000),
         )
-    else:
-        doc_type, signature = classify_text(text)
-        confidence = Decimal("0.999") if signature else Decimal("0")
-        classification = PendingExtractionRun(
-            status="done" if signature else "failed",
-            parser="classification",
-            model="content-signature-v1",
-            provider="local",
-            payload={
-                "doc_type": doc_type.value,
-                "confidence": str(confidence),
-                "evidence": signature,
-            },
-            raw_response={"text_layer": has_text},
-            latency_ms=int((time.perf_counter() - classification_started) * 1000),
-        )
-
     if doc_type == DocumentType.UNKNOWN:
+        if client is not None:
+            client.close()
         return DocumentOutcome(
             document_id=task.document_id,
             doc_type=doc_type,
@@ -166,15 +218,103 @@ def _process_document(task: DocumentTask, settings: Settings) -> DocumentOutcome
         )
 
     extraction_started = time.perf_counter()
+    attempts: list[PendingExtractionRun] = []
     try:
-        parsed, metadata = extract_document(task.path, doc_type, settings)
+        if local_requested or configured_local:
+            try:
+                parsed = extract_local_text(text, doc_type)
+                metadata = {
+                    "backend": "local-demo",
+                    "tokens_in": 0,
+                    "tokens_out": 0,
+                    "cost_usd": "0",
+                    "provider": "local",
+                    "model": "regex-fixture-v1",
+                    "raw": {
+                        "mode": "local-demo",
+                        "template_id": template.id if template else "forced-local",
+                    },
+                    "ocr_used": False,
+                }
+            except Exception as local_error:
+                if settings.extraction_backend != "hybrid" or not settings.openrouter_api_key:
+                    raise
+                attempts.append(
+                    PendingExtractionRun(
+                        status="failed",
+                        parser="local-demo",
+                        provider="local",
+                        model="regex-fixture-v1",
+                        error=str(local_error),
+                    )
+                )
+                client = OpenRouterClient(settings)
+                classified, raw_classification = client.classify_document(
+                    text, path=task.path if not has_text else None
+                )
+                doc_type = classified.doc_type
+                confidence = classified.confidence
+                classification_meta = client.usage(raw_classification)
+                classification = PendingExtractionRun(
+                    status="done",
+                    parser="classification",
+                    model=classification_meta.get("model"),
+                    provider=classification_meta.get("provider") or "openrouter",
+                    payload=classified.model_dump(mode="json"),
+                    raw_response=classification_meta.get("raw"),
+                    tokens_in=int(classification_meta["tokens_in"]),
+                    tokens_out=int(classification_meta["tokens_out"]),
+                    cost_usd=Decimal(str(classification_meta["cost_usd"])),
+                )
+                schema = SCHEMAS[doc_type]
+                prompt = (Path(__file__).parents[1] / "llm" / "prompts" / "extract.txt").read_text(
+                    encoding="utf-8"
+                )
+                parsed, raw = client.extract_pdf(
+                    task.path,
+                    prompt.format(doc_type=doc_type.value),
+                    schema,
+                    ocr=not has_text,
+                    classification_body=raw_classification,
+                )
+                metadata = client.usage(raw)
+                metadata.update(
+                    backend="openrouter",
+                    ocr_used=not has_text,
+                    ocr_reused=bool(client.file_annotations(raw_classification or {})),
+                )
+        else:
+            assert client is not None
+            schema = SCHEMAS[doc_type]
+            prompt = (Path(__file__).parents[1] / "llm" / "prompts" / "extract.txt").read_text(
+                encoding="utf-8"
+            )
+            parsed, raw = client.extract_pdf(
+                task.path,
+                prompt.format(doc_type=doc_type.value),
+                schema,
+                ocr=not has_text,
+                classification_body=raw_classification,
+            )
+            metadata = client.usage(raw)
+            metadata.update(
+                backend="openrouter",
+                ocr_used=not has_text,
+                ocr_reused=bool(client.file_annotations(raw_classification or {})),
+            )
         extraction = PendingExtractionRun(
             status="done",
             parser=metadata.get("backend", "unknown"),
             model=metadata.get("model"),
             provider=metadata.get("provider"),
             payload=parsed.model_dump(mode="json"),
-            raw_response=metadata.get("raw"),
+            raw_response={
+                "provider_response": metadata.get("raw"),
+                "ocr_reused": bool(metadata.get("ocr_reused", False)),
+                "template_id": template.id
+                if template and metadata.get("provider") == "local"
+                else None,
+            },
             tokens_in=int(metadata.get("tokens_in", 0)),
             tokens_out=int(metadata.get("tokens_out", 0)),
             cost_usd=Decimal(str(metadata.get("cost_usd", "0"))),
@@ -189,6 +329,9 @@ def _process_document(task: DocumentTask, settings: Settings) -> DocumentOutcome
             latency_ms=int((time.perf_counter() - extraction_started) * 1000),
         )
         ocr_used = False
+    finally:
+        if client is not None:
+            client.close()
 
     return DocumentOutcome(
         document_id=task.document_id,
@@ -199,6 +342,7 @@ def _process_document(task: DocumentTask, settings: Settings) -> DocumentOutcome
         ocr_used=ocr_used,
         classification=classification,
         extraction=extraction,
+        attempts=tuple(attempts),
     )
 
 
@@ -235,6 +379,7 @@ def _persist_run(
         tokens_out=run.tokens_out,
         cost_usd=run.cost_usd,
         latency_ms=run.latency_ms,
+        created_at=datetime.now(timezone.utc),
     )
     db.add(record)
     return record
@@ -254,8 +399,10 @@ def _persist_outcome(db: Session, job: Job, outcome: DocumentOutcome) -> tuple[i
     document.page_count = outcome.page_count
     document.has_text_layer = outcome.has_text_layer
     document.ocr_used = outcome.ocr_used
-    runs = [outcome.classification]
+    runs = [outcome.classification, *outcome.attempts]
     _persist_run(db, job, outcome.document_id, outcome.classification)
+    for attempt in outcome.attempts:
+        _persist_run(db, job, outcome.document_id, attempt)
     if outcome.extraction is not None:
         runs.append(outcome.extraction)
         _persist_run(db, job, outcome.document_id, outcome.extraction)
@@ -289,6 +436,44 @@ def _latest_extractions(
         if run:
             output.append((document, run))
     return output
+
+
+def _review_document_records(
+    db: Session, documents: list[Document], org_id: uuid.UUID
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    gate_documents: list[dict[str, Any]] = []
+    extraction_records: list[dict[str, Any]] = []
+    for document in documents:
+        run = db.scalar(
+            select(ExtractionRun)
+            .where(
+                ExtractionRun.document_id == document.id,
+                ExtractionRun.org_id == org_id,
+                ExtractionRun.parser != "classification",
+            )
+            .order_by(ExtractionRun.created_at.desc())
+        )
+        gate_documents.append(
+            {
+                "id": str(document.id),
+                "filename": document.filename,
+                "doc_type": document.doc_type,
+                "classify_confidence": str(document.classify_confidence or "0"),
+                "extraction_status": run.status if run else "pending",
+                "extraction_error": run.error if run else None,
+            }
+        )
+        if run and run.status == "done":
+            raw = run.raw_response or {}
+            extraction_records.append(
+                {
+                    "provider": run.provider,
+                    "model": run.model,
+                    "parser": run.parser,
+                    "ocr_reused": bool(raw.get("ocr_reused")),
+                }
+            )
+    return gate_documents, extraction_records
 
 
 def _set_path(payload: dict, path: str, value) -> None:
@@ -367,6 +552,15 @@ def process_job(db: Session, job: Job, settings: Settings) -> None:
     )
     if not dispatch:
         raise ValueError("dispatch not found")
+    client_version = db.scalar(
+        select(ClientConfigVersion).where(
+            ClientConfigVersion.id == dispatch.client_config_version_id,
+            ClientConfigVersion.org_id == job.org_id,
+        )
+    )
+    if client_version is None:
+        raise ValueError("pinned client config version not found")
+    client_config = ClientProfileConfig.model_validate(client_version.content)
     job.status = "running"
     job.stage = "classification"
     job.started_at = datetime.now(timezone.utc)
@@ -390,7 +584,13 @@ def process_job(db: Session, job: Job, settings: Settings) -> None:
             )
         )
         if existing is None:
-            tasks.append(DocumentTask(document_id=document.id, path=Path(document.storage_path)))
+            tasks.append(
+                DocumentTask(
+                    document_id=document.id,
+                    path=Path(document.storage_path),
+                    extraction_config=client_config.extraction,
+                )
+            )
 
     total_documents = max(len(documents), 1)
     completed_documents = len(documents) - len(tasks)
@@ -415,19 +615,39 @@ def process_job(db: Session, job: Job, settings: Settings) -> None:
     if bundle.instruction:
         dispatch.despacho_no = bundle.instruction.despacho_no.value
         dispatch.referencia = bundle.instruction.referencia.value
+    gate_documents, extraction_records = _review_document_records(db, documents, job.org_id)
+    review = evaluate_review_gates(
+        gate_documents,
+        effective_payloads,
+        dispatch.expected_documents,
+        client_config.extraction,
+    )
+    processing = extraction_mode(extraction_records)
+    db.add(
+        AuditEvent(
+            org_id=job.org_id,
+            dispatch_id=dispatch.id,
+            action="review_gate_evaluated",
+            payload={"review": review, "processing": processing},
+        )
+    )
+
+    if not review["can_calculate"]:
+        dispatch.status = "review_required"
+        job.status = "needs_review"
+        job.stage = "review_required"
+        job.progress = Decimal("1")
+        job.tokens_in = tokens_in
+        job.tokens_out = tokens_out
+        job.cost_usd = cost
+        job.finished_at = datetime.now(timezone.utc)
+        db.commit()
+        return
+
     config_version = db.get(JurisdictionConfigVersion, dispatch.jurisdiction_config_version_id)
     if config_version is None:
         raise ValueError("pinned jurisdiction config version not found")
     config = JurisdictionConfig.model_validate(config_version.content)
-    client_version = db.scalar(
-        select(ClientConfigVersion).where(
-            ClientConfigVersion.id == dispatch.client_config_version_id,
-            ClientConfigVersion.org_id == job.org_id,
-        )
-    )
-    if client_version is None:
-        raise ValueError("pinned client config version not found")
-    client_config = ClientProfileConfig.model_validate(client_version.content)
     fx_record = db.scalar(
         select(CustomsFxRate).where(
             CustomsFxRate.id == dispatch.customs_fx_rate_id,
@@ -491,9 +711,9 @@ def process_job(db: Session, job: Job, settings: Settings) -> None:
                     payload=result,
                 )
             )
-    dispatch.status = "review"
-    job.status = "done"
-    job.stage = "done"
+    dispatch.status = "review_required" if review["blocked"] else "review"
+    job.status = "needs_review" if review["blocked"] else "done"
+    job.stage = "review_required" if review["blocked"] else "done"
     job.progress = Decimal("1")
     job.tokens_in = tokens_in
     job.tokens_out = tokens_out

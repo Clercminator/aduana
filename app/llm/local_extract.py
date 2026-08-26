@@ -52,11 +52,11 @@ def _values(pattern: str, text: str, flags: int = 0) -> tuple[str, ...]:
     return match.groups()
 
 
-def extract_local(path: Path):
-    text, _, has_text = pdf_text(path)
-    if not has_text:
-        raise ValueError("local demo extractor cannot process a scanned PDF")
-    doc_type, _ = classify_text(text)
+def extract_local_text(text: str, doc_type: DocumentType | None = None):
+    if not text.strip():
+        raise ValueError("local demo extractor cannot process an empty or scanned PDF")
+    if doc_type is None:
+        doc_type, _ = classify_text(text)
     parsers = {
         DocumentType.DISPATCH_INSTRUCTION: _instruction,
         DocumentType.BILL_OF_LADING: _bill_of_lading,
@@ -68,6 +68,13 @@ def extract_local(path: Path):
     if doc_type not in parsers:
         raise ValueError("unclassifiable document")
     return parsers[doc_type](text)
+
+
+def extract_local(path: Path):
+    text, _, has_text = pdf_text(path)
+    if not has_text:
+        raise ValueError("local demo extractor cannot process a scanned PDF")
+    return extract_local_text(text)
 
 
 def _instruction(text: str) -> DispatchInstruction:

@@ -5,10 +5,12 @@ from decimal import Decimal
 from pathlib import Path
 
 from app.config import Settings
+from app.engine.client import load_client_profile
 from app.jobs.pipeline import (
     DocumentOutcome,
     DocumentTask,
     PendingExtractionRun,
+    _process_document,
     _run_document_tasks,
 )
 from app.schemas.domain import DocumentType
@@ -82,3 +84,42 @@ def test_document_task_failure_does_not_cancel_other_documents(monkeypatch):
     failed = next(item for item in outcomes if item.classification.status == "failed")
     assert failed.classification.error == "provider unavailable"
     assert any(item.doc_type == DocumentType.PACKING_LIST for item in outcomes)
+
+
+def test_hybrid_uses_only_a_configured_supplier_template_locally():
+    profile = load_client_profile("clients/falabella.yaml").config
+    task = DocumentTask(
+        uuid.uuid4(),
+        Path("fixtures/scenario_A_clean/02_1_COMMERCIAL_INVOICE_BN26010441.pdf"),
+        profile.extraction,
+    )
+
+    outcome = _process_document(
+        task,
+        Settings(extraction_backend="hybrid", openrouter_api_key=""),
+    )
+
+    assert outcome.extraction is not None
+    assert outcome.extraction.status == "done"
+    assert outcome.extraction.provider == "local"
+    assert (
+        outcome.extraction.raw_response["template_id"] == "configured-asian-supplier-commercial-v1"
+    )
+
+
+def test_hybrid_unknown_layout_fails_closed_without_ai_key():
+    profile = load_client_profile("clients/falabella.yaml").config
+    task = DocumentTask(
+        uuid.uuid4(),
+        Path("fixtures/scenario_E_document_realism/supplier_01_invoice_vector.pdf"),
+        profile.extraction,
+    )
+
+    outcome = _process_document(
+        task,
+        Settings(extraction_backend="hybrid", openrouter_api_key=""),
+    )
+
+    assert outcome.extraction is None
+    assert outcome.classification.status == "failed"
+    assert "OPENROUTER_API_KEY" in (outcome.classification.error or "")

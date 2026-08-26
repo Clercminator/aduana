@@ -18,6 +18,10 @@ export type DocumentRecord = {
   file_url: string;
   extraction: Record<string, unknown> | null;
   extraction_status: string;
+  extraction_error: string | null;
+  extraction_parser: string | null;
+  extraction_provider: string | null;
+  extraction_model: string | null;
 };
 
 export type Rule = {
@@ -76,6 +80,25 @@ export type DispatchState = {
     created_at: string;
   };
   documents: DocumentRecord[];
+  processing: {
+    mode: "local" | "openrouter";
+    label: string;
+    providers: string[];
+    ocr_reused: number;
+  };
+  review: {
+    blocked: boolean;
+    can_calculate: boolean;
+    reason_count: number;
+    reasons: Array<{
+      category: "completeness" | "confidence";
+      code: string;
+      detail: string;
+      filename?: string;
+      field_path?: string;
+    }>;
+    thresholds?: { classification: string; financial: string };
+  };
   calculation: null | {
     label: string;
     rules: Rule[];
@@ -96,7 +119,7 @@ export type DispatchState = {
 export type Job = {
   id: string;
   dispatch_id: string;
-  status: "queued" | "running" | "done" | "failed";
+  status: "queued" | "running" | "done" | "needs_review" | "failed";
   stage: string;
   progress: string;
   error: string | null;

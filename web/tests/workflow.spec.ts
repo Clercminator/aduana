@@ -65,14 +65,17 @@ test("carga múltiple, revisión, corrección, aceptación y exportaciones", asy
 
 test("expediente incompleto muestra faltantes y controles pendientes", async ({ page }) => {
   await page.goto("/");
+  await expect(page.getByRole("button", { name: "Elegir archivos" })).toBeEnabled();
   const instruction = path.join(fixtureRoot, "scenario_A_clean", "00_INSTRUCCION_DESPACHO_700611.pdf");
   await page.locator('input[type="file"]').nth(1).setInputFiles(instruction);
   await expect(page.getByRole("heading", { name: "700611", exact: true })).toBeVisible({ timeout: 60_000 });
-  await expect(page.getByText("Expediente incompleto")).toBeVisible();
+  await expect(page.getByText("Revisión humana obligatoria")).toBeVisible();
+  await expect(page.getByText(/Extracción local determinista — demo/)).toBeVisible();
   await expect(page.getByText("1 de 8 archivos requeridos")).toBeVisible();
   await expect(page.getByText("7 faltantes")).toBeVisible();
-  await expect(page.getByText("12 controles provisionales pendientes por documentos faltantes")).toBeVisible();
-  await expect(page.getByText("Cálculo pendiente: agregue los documentos comerciales faltantes.")).toBeVisible();
+  await expect(page.getByText(/PRORRATEO MASTER bloqueado/i)).toBeVisible();
+  await expect(page.getByRole("link", { name: /prorrateo master/i })).toHaveCount(0);
+  await expect(page.locator(".calculation-section")).toHaveCount(0);
   await expect(page.getByText(/NaN/)).toHaveCount(0);
   await expect(page.locator(".react-pdf__Page canvas")).toBeVisible();
   if (screenshotRoot) await page.screenshot({ path: path.join(screenshotRoot, "review-incomplete.png"), fullPage: true });

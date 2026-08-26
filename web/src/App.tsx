@@ -66,7 +66,7 @@ export default function App() {
         try {
           const current = await api.job(orgId, jobId);
           setJob(current);
-          if (current.status === "done") {
+          if (current.status === "done" || current.status === "needs_review") {
             setBusy(false);
             setDispatchId(current.dispatch_id);
             localStorage.setItem(`demo_dispatch_id:${orgId}`, current.dispatch_id);

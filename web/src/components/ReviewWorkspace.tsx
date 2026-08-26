@@ -36,7 +36,7 @@ export function ReviewWorkspace({ state, orgId, lastJob, onRefresh, onJob }: Pro
   const checklist = useMemo(() => {
     const received = new Map<string, number>();
     for (const document of state.documents) {
-      if (document.doc_type) received.set(document.doc_type, (received.get(document.doc_type) || 0) + 1);
+      if (document.doc_type && document.extraction_status === "done") received.set(document.doc_type, (received.get(document.doc_type) || 0) + 1);
     }
     const required = [
       ["dispatch_instruction", 1] as const,
@@ -47,10 +47,10 @@ export function ReviewWorkspace({ state, orgId, lastJob, onRefresh, onJob }: Pro
   const expectedTotal = checklist.reduce((total, item) => total + item.expected, 0);
   const receivedTotal = checklist.reduce((total, item) => total + Math.min(item.received, item.expected), 0);
   const missingTotal = expectedTotal - receivedTotal;
-  const incompleteCount = state.documents.filter((document) => document.doc_type === "unknown" || document.extraction_status !== "done").length;
-  const reviewComplete = missingTotal === 0 && incompleteCount === 0;
+  const reviewComplete = !state.review.blocked;
   const exportBase = `${API_ROOT}/dispatches/${state.dispatch.id}/exports`;
   const declarationCount = new Set(calculation?.lines.map((line) => line.invoice) || []).size;
+  const gateDetail = state.review.reasons[0]?.detail;
 
   async function correct(field: FlatField, value: string, reason: string) {
     const result = await api.correct(orgId, state.dispatch.id, `${selected.id}:${field.path}.value`, value, reason);
@@ -96,14 +96,14 @@ export function ReviewWorkspace({ state, orgId, lastJob, onRefresh, onJob }: Pro
     <main className="review-page">
       <section className="dispatch-banner">
         <div><span className="kicker">Despacho en revisión</span><h1>{state.dispatch.despacho_no || "Sin número"}</h1><p>{state.dispatch.referencia || "Sin referencia"} · {state.dispatch.organization_name} · Chile</p></div>
-        <div className={`banner-status ${reviewComplete ? "" : "incomplete"}`}>{reviewComplete ? <CheckCircle2 size={18} /> : <AlertTriangle size={18} />}<span>{reviewComplete ? "Expediente completo" : "Expediente incompleto"}<strong>{receivedTotal}/{expectedTotal} requeridos{lastJob?.elapsed_seconds ? ` · Procesado en ${lastJob.elapsed_seconds.toFixed(1)} s` : ""}</strong></span></div>
+        <div className={`banner-status ${reviewComplete ? "" : "incomplete"}`}>{reviewComplete ? <CheckCircle2 size={18} /> : <AlertTriangle size={18} />}<span>{reviewComplete ? "Expediente completo" : "Revisión humana obligatoria"}<strong>{receivedTotal}/{expectedTotal} requeridos{lastJob?.elapsed_seconds ? ` · Procesado en ${lastJob.elapsed_seconds.toFixed(1)} s` : ""}</strong><small>{state.processing.label}{gateDetail ? ` · ${gateDetail}` : ""}</small></span></div>
         <div className="export-cluster">
           <div className="master-export">
-            <a className="button secondary" href={tenantAssetUrl(`${exportBase}/reconciliation.xlsx`, orgId)}><Sheet size={16} /> PRORRATEO MASTER completado</a>
-            <small>Conserva las dos hojas operativas originales</small>
+            {reviewComplete ? <a className="button secondary" href={tenantAssetUrl(`${exportBase}/reconciliation.xlsx`, orgId)}><Sheet size={16} /> PRORRATEO MASTER completado</a> : <span className="button secondary disabled" aria-disabled="true" title="Resuelva la revisión humana antes de exportar"><Sheet size={16} /> PRORRATEO MASTER bloqueado</span>}
+            <small>{reviewComplete ? "Conserva las dos hojas operativas originales" : `${state.review.reason_count} observaciones por resolver`}</small>
           </div>
-          <a className="button secondary" href={tenantAssetUrl(`${exportBase}/din.json`, orgId)}><FileDown size={16} /> {declarationCount} DIN JSON</a>
-          <a className="button primary" href={tenantAssetUrl(`${exportBase}/din.pdf`, orgId)}><Download size={16} /> {declarationCount} DIN PDF</a>
+          {reviewComplete ? <a className="button secondary" href={tenantAssetUrl(`${exportBase}/din.json`, orgId)}><FileDown size={16} /> {declarationCount} DIN JSON</a> : <span className="button secondary disabled" aria-disabled="true"><FileDown size={16} /> DIN JSON</span>}
+          {reviewComplete ? <a className="button primary" href={tenantAssetUrl(`${exportBase}/din.pdf`, orgId)}><Download size={16} /> {declarationCount} DIN PDF</a> : <span className="button primary disabled" aria-disabled="true"><Download size={16} /> DIN PDF</span>}
         </div>
       </section>
 

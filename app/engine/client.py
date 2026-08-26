@@ -38,6 +38,20 @@ class ClientAllocationConfig(BaseModel):
     basis: Literal["invoice_value", "gross_weight", "volume"]
 
 
+class DocumentTemplateConfig(BaseModel):
+    id: str = Field(min_length=1)
+    parser: Literal["regex-fixture-v1"] = "regex-fixture-v1"
+    document_types: list[str] = Field(min_length=1)
+    match_any: list[str] = Field(min_length=1)
+
+
+class ClientExtractionConfig(BaseModel):
+    templates: list[DocumentTemplateConfig] = Field(default_factory=list)
+    classification_min_confidence: Decimal = Field(default=Decimal("0.90"), ge=0, le=1)
+    financial_min_confidence: Decimal = Field(default=Decimal("0.95"), ge=0, le=1)
+    review_fields: dict[str, list[str]] = Field(default_factory=dict)
+
+
 class ClientProfileConfig(BaseModel):
     client: str
     jurisdiction: str
@@ -45,6 +59,7 @@ class ClientProfileConfig(BaseModel):
     allocation: ClientAllocationConfig
     default_incoterm: str
     transport_document: Literal["direct_bl", "master_bl", "house_bl"]
+    extraction: ClientExtractionConfig = Field(default_factory=ClientExtractionConfig)
 
 
 class LoadedClientProfile(BaseModel):

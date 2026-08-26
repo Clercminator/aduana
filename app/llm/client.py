@@ -63,31 +63,70 @@ class OpenRouterClient:
                 time.sleep(delay)
         raise RuntimeError(f"OpenRouter no respondió después de 5 intentos: {last_problem}")
 
-    def extract_pdf(
-        self, path: Path, prompt: str, schema: type[T], ocr: bool = False
-    ) -> tuple[T, dict]:
+    @staticmethod
+    def _classification_prompt() -> str:
+        return (
+            "Clasifica el contenido, sin usar el nombre del archivo. Responde con uno de: "
+            "dispatch_instruction, bill_of_lading, commercial_invoice, packing_list, "
+            "insurance_certificate, certificate_of_origin, unknown. confidence debe ser "
+            "una cadena decimal y evidence una cita literal breve del contenido."
+        )
+
+    @staticmethod
+    def file_annotations(body: dict[str, Any]) -> list[dict[str, Any]]:
+        choices = body.get("choices")
+        if not isinstance(choices, list) or not choices:
+            return []
+        annotations = choices[0].get("message", {}).get("annotations", [])
+        if not isinstance(annotations, list):
+            return []
+        return [
+            item for item in annotations if isinstance(item, dict) and item.get("type") == "file"
+        ]
+
+    @staticmethod
+    def _pdf_content(path: Path, prompt: str) -> list[dict[str, Any]]:
         encoded = base64.b64encode(path.read_bytes()).decode("ascii")
+        return [
+            {
+                "type": "file",
+                "file": {
+                    "filename": path.name,
+                    "file_data": f"data:application/pdf;base64,{encoded}",
+                },
+            },
+            {"type": "text", "text": prompt},
+        ]
+
+    def extract_pdf(
+        self,
+        path: Path,
+        prompt: str,
+        schema: type[T],
+        ocr: bool = False,
+        classification_body: dict[str, Any] | None = None,
+    ) -> tuple[T, dict]:
+        annotations = self.file_annotations(classification_body or {}) if ocr else []
+        if annotations:
+            classification_message = (classification_body or {})["choices"][0]["message"]
+            messages = [
+                {
+                    "role": "user",
+                    "content": self._pdf_content(path, self._classification_prompt()),
+                },
+                {
+                    "role": "assistant",
+                    "content": classification_message.get("content", ""),
+                    "annotations": annotations,
+                },
+                {"role": "user", "content": prompt},
+            ]
+        else:
+            messages = [{"role": "user", "content": self._pdf_content(path, prompt)}]
         payload = {
             "model": self.settings.extract_model,
             "max_tokens": self.settings.extract_max_tokens,
-            "messages": [
-                {
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "file",
-                            "file": {
-                                "filename": path.name,
-                                "file_data": f"data:application/pdf;base64,{encoded}",
-                            },
-                        },
-                        {"type": "text", "text": prompt},
-                    ],
-                }
-            ],
-            "plugins": [
-                {"id": "file-parser", "pdf": {"engine": "mistral-ocr" if ocr else "native"}}
-            ],
+            "messages": messages,
             "response_format": {
                 "type": "json_schema",
                 "json_schema": {
@@ -98,6 +137,10 @@ class OpenRouterClient:
             },
             "provider": {"require_parameters": True},
         }
+        if not annotations:
+            payload["plugins"] = [
+                {"id": "file-parser", "pdf": {"engine": "mistral-ocr" if ocr else "native"}}
+            ]
         body, content = self._completion(payload)
         if isinstance(content, list):
             content = "".join(part.get("text", "") for part in content if isinstance(part, dict))
@@ -118,27 +161,12 @@ class OpenRouterClient:
     def classify_document(
         self, text: str, path: Path | None = None
     ) -> tuple[ClassificationResponse, dict]:
-        prompt = (
-            "Clasifica el contenido, sin usar el nombre del archivo. Responde con uno de: "
-            "dispatch_instruction, bill_of_lading, commercial_invoice, packing_list, "
-            "insurance_certificate, certificate_of_origin, unknown. confidence debe ser "
-            "una cadena decimal y evidence una cita literal breve del contenido."
-        )
+        prompt = self._classification_prompt()
         if path is None:
             content: str | list[dict] = f"{prompt}\n\nCONTENIDO:\n{text[:50000]}"
             plugins = None
         else:
-            encoded = base64.b64encode(path.read_bytes()).decode("ascii")
-            content = [
-                {
-                    "type": "file",
-                    "file": {
-                        "filename": "document.pdf",
-                        "file_data": f"data:application/pdf;base64,{encoded}",
-                    },
-                },
-                {"type": "text", "text": prompt},
-            ]
+            content = self._pdf_content(path, prompt)
             plugins = [{"id": "file-parser", "pdf": {"engine": "mistral-ocr"}}]
         payload = {
             "model": self.settings.classify_model,

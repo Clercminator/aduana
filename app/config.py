@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     classify_model: str = "google/gemini-3.5-flash-lite"
     extract_model: str = "google/gemini-3.7-flash"
     extract_max_tokens: int = Field(default=12000, ge=1000, le=64000)
-    extraction_backend: str = "auto"
+    extraction_backend: str = Field(default="hybrid", pattern="^(auto|local|openrouter|hybrid)$")
     document_root: Path = Path("data/documents")
     artifact_root: Path = Path("data/artifacts")
     fixture_root: Path = Path("fixtures")

@@ -67,6 +67,18 @@ const state = {
     created_at: "2026-08-24T12:00:00Z",
   },
   documents: [],
+  processing: {
+    mode: "local",
+    label: "Extracción local determinista — demo",
+    providers: ["local"],
+    ocr_reused: 0,
+  },
+  review: {
+    blocked: false,
+    can_calculate: true,
+    reason_count: 0,
+    reasons: [],
+  },
   calculation: {
     label: "según documentos, pendiente de revisión",
     rules: Array.from({ length: 12 }, (_, index) => ({

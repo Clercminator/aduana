@@ -257,6 +257,8 @@ def build_workbook(state: dict[str, Any], template_path: Path = TEMPLATE_PATH) -
     calculation = state.get("calculation") or {}
     totals = calculation.get("totals", {})
     invoices = _invoice_summaries(calculation.get("lines") or [])
+    processing = state.get("processing") or {}
+    review = state.get("review") or {}
 
     ws = _sheet(workbook, "Resumen", ["Campo", "Valor"])
     summary = [
@@ -264,6 +266,8 @@ def build_workbook(state: dict[str, Any], template_path: Path = TEMPLATE_PATH) -
         ("Despacho", dispatch.get("despacho_no")),
         ("Referencia", dispatch.get("referencia")),
         ("Estado", dispatch.get("status")),
+        ("Modo de extracción", processing.get("label")),
+        ("Compuerta de revisión", "BLOQUEADA" if review.get("blocked") else "APROBADA"),
         ("Valor aduanero USD", totals.get("customs_value")),
         ("Costo puesto USD", totals.get("landed_cost")),
         ("Tributos USD", totals.get("total_payable")),
@@ -285,7 +289,19 @@ def build_workbook(state: dict[str, Any], template_path: Path = TEMPLATE_PATH) -
     ws_docs = _sheet(
         workbook,
         "Documentos",
-        ["Archivo", "Tipo", "SHA-256", "Páginas", "Texto", "OCR", "Confianza"],
+        [
+            "Archivo",
+            "Tipo",
+            "SHA-256",
+            "Páginas",
+            "Texto",
+            "OCR",
+            "Confianza",
+            "Estado extracción",
+            "Parser",
+            "Proveedor",
+            "Modelo",
+        ],
     )
     for document in state.get("documents", []):
         ws_docs.append(
@@ -297,6 +313,10 @@ def build_workbook(state: dict[str, Any], template_path: Path = TEMPLATE_PATH) -
                 document.get("has_text_layer"),
                 document.get("ocr_used"),
                 document.get("classify_confidence"),
+                document.get("extraction_status"),
+                document.get("extraction_parser"),
+                document.get("extraction_provider"),
+                document.get("extraction_model"),
             ]
         )
 
@@ -441,6 +461,20 @@ def build_workbook(state: dict[str, Any], template_path: Path = TEMPLATE_PATH) -
         ]
     )
     ws_trace.append([None, "workbook_template", f"{template_path.name}; sha256={template_hash}"])
+    ws_trace.append(
+        [
+            None,
+            "extraction_mode",
+            f"{processing.get('label') or ''}; providers={','.join(processing.get('providers') or [])}; ocr_reused={processing.get('ocr_reused', 0)}",
+        ]
+    )
+    ws_trace.append(
+        [
+            None,
+            "review_gate",
+            f"blocked={bool(review.get('blocked'))}; reasons={review.get('reason_count', 0)}",
+        ]
+    )
     for event in state.get("audit", []):
         ws_trace.append([event.get("created_at"), event.get("action"), str(event.get("payload"))])
 
