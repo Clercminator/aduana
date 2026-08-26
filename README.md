@@ -45,6 +45,9 @@ se contradigan. Este README describe lo que existe realmente hoy y qué falta.
 - La demo incluye dos agencias sintéticas seleccionables: **IMR Demo** y **Pacífico Demo**.
   Cada una carga su propia organización, cliente, branding, póliza y defaults desde YAML;
   cambiar de agencia no requiere modificar código.
+- Los escenarios A/B/C/D están declarados por agencia y solo habilitados para IMR Demo,
+  porque sus documentos pertenecen a Falabella. UI y API impiden aplicar accidentalmente
+  la póliza de Pacífico a esos fixtures; Pacífico sí admite cargas PDF propias.
 - Todas las rutas de negocio exigen contexto de organización (`X-Org-ID`; `org_id` en enlaces
   descargables), consultan recursos por `org_id` y tienen pruebas que bloquean el acceso
   cruzado. Es una frontera demostrable de datos, no autenticación productiva.
@@ -53,7 +56,7 @@ se contradigan. Este README describe lo que existe realmente hoy y qué falta.
 - El intake acepta solo PDFs válidos y aplica límites configurables de cantidad, tamaño por
   archivo, tamaño del lote y páginas, antes de crear el despacho. Los errores se muestran en
   la interfaz con un mensaje concreto.
-- GitHub Actions ejecuta formato/lint, 51 pruebas Python, build y auditoría del frontend, y
+- GitHub Actions ejecuta formato/lint, 54 pruebas Python, build y auditoría del frontend, y
   el E2E completo contra API, worker y PostgreSQL en una pila Docker aislada.
 
 ### Qué ya está construido
@@ -167,7 +170,7 @@ trabajos, cálculos, excepciones, eventos de auditoría y artefactos generados.
 | `GET /api/health` | Healthcheck. |
 | `GET /api/demo/agencies` | Catálogo público de perfiles sintéticos y límites para el selector. |
 | `POST /api/intake/batches` | Crear despacho desde una carga multipart y encolar trabajo. |
-| `POST /api/demo/load/{A\|B\|C\|D}` | Cargar un escenario sintético y encolar trabajo. |
+| `POST /api/demo/load/{A\|B\|C\|D}` | Cargar un escenario habilitado para la agencia activa y encolar trabajo. |
 | `POST /api/dispatches/{id}/documents` | Agregar documentos y reprocesar. |
 | `GET /api/jobs/{id}` | Estado, etapa, progreso, error y tiempo transcurrido. |
 | `GET /api/dispatches/{id}` | Estado efectivo completo para revisión. |
@@ -265,6 +268,8 @@ validación legal, aduanera ni productiva.
   todavía no sustituye antivirus, cuotas comerciales ni análisis de contenido hostil.
 - La UI conserva un despacho independiente por organización, muestra la agencia activa y
   aplica su branding y resumen de política sin hardcodear el cliente en React.
+- La disponibilidad de fixtures también vive en el perfil de agencia; UI y API bloquean
+  combinaciones fixture/perfil no declaradas en vez de calcularlas con una póliza incorrecta.
 
 **P0 SaaS aún abierto — aislamiento y confianza**
 
@@ -395,28 +400,141 @@ Los seams ya existentes para trabajo futuro son `Cited.provenance`, `dispatch.re
 objeto `Money`, el scope explícito de `allocate()`, `org_id` y los adaptadores de declaración.
 No presentar esos seams como funcionalidades terminadas.
 
-## Ejecutar la demo
+## Iniciar y operar la demo — flujo completo
 
-Requisitos: Docker Desktop con motor Linux. No se necesita una clave de modelo para los
-fixtures: el modo local extrae deterministicamente los PDFs sintéticos. Desde la raíz:
+### 1. Requisitos y ubicación
+
+- Docker Desktop abierto con el motor Linux activo.
+- Puertos 5173, 8000 y 5432 disponibles.
+- PowerShell ubicado en la raíz del repositorio, donde está `docker-compose.yml`.
+- No se necesita una clave de modelo: los escenarios sintéticos usan el extractor local
+  determinista mediante el override de QA. La pila normal usa el valor de `.env` o `auto`.
 
 ```powershell
-docker compose up --build -d
+Set-Location "C:\ruta\al\repositorio\aduana"
+docker info
 ```
 
-Abra [http://localhost:5173](http://localhost:5173). La API y su documentación quedan en
-[http://localhost:8000/docs](http://localhost:8000/docs). Para permitir acceso por LAN use
-la IP privada del equipo; la interfaz resuelve la API en el mismo host y puerto 8000.
-El botón **Ayuda** de la barra superior abre una guía breve para conducir la demostración.
+### 2. Arranque recomendado antes de la reunión
 
-Para el E2E reproducible use un nombre de proyecto aislado y el override local. Esto crea
-volúmenes QA independientes y evita consumir OpenRouter aunque exista una clave en `.env`:
+Este comando valida Docker/Compose, construye y levanta PostgreSQL, API, worker y frontend,
+espera los healthchecks, comprueba los cuatro servicios y verifica el catálogo de agencias.
+Por defecto fuerza el extractor local determinista, aunque `.env` contenga una clave:
 
 ```powershell
-docker compose -p aduanaqa -f docker-compose.yml -f docker-compose.e2e.yml up -d --build
-cd web
+powershell -ExecutionPolicy Bypass -File .\scripts\preflight_demo.ps1
+```
+
+Si las imágenes ya fueron construidas y solo quiere reiniciar más rápido:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\preflight_demo.ps1 -SkipBuild
+```
+
+Solo para probar deliberadamente el backend configurado en `.env` (`auto`/OpenRouter):
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\preflight_demo.ps1 -UseConfiguredBackend
+```
+
+Arranque manual determinista equivalente:
+
+```powershell
+docker compose -f docker-compose.yml -f docker-compose.e2e.yml config --quiet
+docker compose -f docker-compose.yml -f docker-compose.e2e.yml up -d --build --wait
+docker compose ps
+Invoke-RestMethod http://localhost:8000/api/health
+Invoke-RestMethod http://localhost:8000/api/demo/agencies
+```
+
+Abra [http://localhost:5173](http://localhost:5173). La API y Swagger quedan en
+[http://localhost:8000/docs](http://localhost:8000/docs). Para acceso por LAN use la IP
+privada del equipo; la interfaz busca la API en el mismo host, puerto 8000.
+
+### 3. Flujo funcional de punta a punta
+
+1. **Elegir agencia.** IMR Demo y Pacífico Demo cambian organización, cliente, branding,
+   póliza y defaults desde YAML versionado.
+2. **Iniciar expediente.** En IMR Demo use A limpio, B con alertas, C de 45 PDFs o D CIF.
+   Los botones quedan bloqueados en Pacífico porque esos fixtures contienen documentos de
+   Falabella. En cualquiera de las dos agencias puede cargar PDFs propios sintéticos.
+3. **Validar la carga.** La API acepta solo PDF legible y aplica límites de archivos, bytes
+   por archivo/lote y páginas antes de crear el despacho.
+4. **Procesar.** API encola el trabajo; el worker clasifica, extrae con citas, normaliza a
+   FOB, ejecuta controles y calcula prorrateo/tributos con reglas deterministas.
+5. **Revisar.** La UI muestra documentos esperados/recibidos, PDF original, campos, página,
+   texto fuente, confianza, excepciones e impacto financiero.
+6. **Corregir o aceptar riesgo.** Toda corrección exige motivo y recalcula sin borrar la
+   extracción original. La aceptación de riesgo exige justificación y es solo de demo.
+7. **Exportar.** Descargue `PRORRATEO MASTER` completado y la DIN provisional JSON/PDF por
+   factura, siempre marcada como borrador no presentable.
+8. **Nuevo despacho.** El botón superior limpia la vista de la agencia activa sin borrar la
+   trazabilidad persistida. El botón **Ayuda** abre el guion breve dentro de la aplicación.
+
+### 4. Diagnóstico durante la reunión
+
+```powershell
+docker compose ps
+docker compose logs --tail 100 api worker web
+docker compose exec -T api python scripts/report_usage.py --limit 10
+```
+
+Si cambió código o configuración:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\preflight_demo.ps1
+```
+
+### 5. Restablecer la demo
+
+El reset siguiente elimina despachos, documentos, cálculos, auditoría y archivos generados
+de **todas las organizaciones configuradas**, pero conserva agencias, perfiles, reglas y FX:
+
+```powershell
+docker compose exec -T api python scripts/reset_demo.py
+```
+
+Para limitarlo a una organización configurada:
+
+```powershell
+docker compose exec -T api python scripts/reset_demo.py --org-id 00000000-0000-0000-0000-000000000001
+```
+
+Después del reset, recargue el navegador. Los identificadores locales obsoletos se descartan
+silenciosamente si el despacho ya no existe.
+
+### 6. Detener o eliminar la pila
+
+Detener conservando contenedores y datos:
+
+```powershell
+docker compose stop
+```
+
+Eliminar contenedores/red conservando los volúmenes persistentes:
+
+```powershell
+docker compose down
+```
+
+Reset total local, incluyendo la base y todos los volúmenes. **Este comando borra los datos
+de la demo y no es recuperable:**
+
+```powershell
+docker compose down -v
+```
+
+### 7. E2E reproducible y aislado
+
+Este flujo crea volúmenes QA independientes y fuerza el extractor local para no consumir
+OpenRouter aunque exista una clave en `.env`:
+
+```powershell
+docker compose -p aduanaqa -f docker-compose.yml -f docker-compose.e2e.yml up -d --build --wait
+Set-Location .\web
+npm ci
 npm run test:e2e
-cd ..
+Set-Location ..
 docker compose -p aduanaqa -f docker-compose.yml -f docker-compose.e2e.yml down -v
 ```
 
@@ -483,7 +601,7 @@ Ejecutada el **25 de agosto de 2026** después de implementar la preparación pa
 
 | Comprobación | Resultado |
 |---|---|
-| `python -m pytest -q` | **PASS — 51 pruebas**. Además de dominio/finanzas, cubre los dos perfiles, pertenencia organizacional y rechazo de PDF/tamaño/lote/páginas inválidos. |
+| `python -m pytest -q` | **PASS — 54 pruebas**. Además de dominio/finanzas, cubre perfiles/escenarios por agencia, pertenencia organizacional, reset seguro y rechazo de PDF/tamaño/lote/páginas inválidos. |
 | `ruff format --check app tests scripts migrations` | **PASS — formato consistente**. |
 | `ruff check app tests migrations scripts` | **PASS — sin hallazgos**. |
 | `npm run lint` | **PASS**. |
@@ -491,9 +609,11 @@ Ejecutada el **25 de agosto de 2026** después de implementar la preparación pa
 | Playwright de paginación | **PASS** en Chromium, 1536×1024 y 390×844 con API simulada: 40 DIN únicas aunque existan 41 líneas, página 2 correcta y sin errores de consola. |
 | Render PDF | **PASS** por inspección con `pypdfium2`: Scenario C generó 40 páginas; primera y última DIN legibles, completas y con advertencia de borrador. |
 | `docker compose ... config --quiet` | **PASS** para la pila normal y el override E2E; perfiles y volúmenes compartidos están montados en API/worker. |
-| `npm run test:e2e` completo | **PASS — 6 recorridos en 23,1 s** contra API, worker, PostgreSQL y volúmenes Docker nuevos. Incluye Pacífico, bloqueo cruzado, contexto obligatorio y error de archivo no PDF. |
+| `npm run test:e2e` completo | **PASS — 7 recorridos en 20,4 s** contra API, worker, PostgreSQL y volúmenes Docker nuevos. Incluye guard UI/API de fixtures, bloqueo cruzado, contexto obligatorio, archivo no PDF y recuperación de estado local obsoleto. |
 | Dependencias | **PASS** — `pip check` sin dependencias rotas y `npm audit` con 0 vulnerabilidades. |
 | Migraciones | **PASS** — base PostgreSQL vacía actualizada hasta `0003_tenant_profiles`; dos organizaciones y sus perfiles versionados creados. |
+| `scripts/preflight_demo.ps1` | **PASS** en Windows PowerShell 5.1: build/start con `--wait`, cuatro servicios sanos, API y dos agencias verificadas. |
+| Reset multiagencia real | **PASS** — eliminó seis despachos de dos organizaciones y sus namespaces en una pila QA aislada, preservando configuración. |
 
 El plugin Browser no estaba disponible; el QA visual usó el Playwright instalado en `web/`.
 Se inspeccionaron las capturas desktop/móvil/completo-incompleto y las páginas 1/40 de la
@@ -516,13 +636,8 @@ npm run build
 npm audit --audit-level=high
 ```
 
-El E2E requiere primero la pila aislada mostrada en la sección de ejecución.
-
-Restablezca todos los despachos de la organización demo, sin borrar la configuración:
-
-```powershell
-docker compose exec -T api python scripts/reset_demo.py
-```
+El E2E requiere primero la pila aislada mostrada en la sección de ejecución. El flujo de
+arranque, preflight, diagnóstico, reset multiagencia y apagado está documentado arriba.
 
 ## Implementación
 

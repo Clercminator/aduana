@@ -46,9 +46,20 @@ def test_two_unique_agency_profiles_reference_valid_client_configuration():
     agencies = load_agency_catalog(ROOT / "agencies")
     assert {item.config.slug for item in agencies} == {"imr-demo", "pacifico-demo"}
     assert len({item.config.organization_id for item in agencies}) == 2
+    scenarios = {item.config.slug: item.config.demo_scenarios for item in agencies}
+    assert scenarios == {"imr-demo": ["A", "B", "C", "D"], "pacifico-demo": []}
     for agency in agencies:
         client = load_client_profile(ROOT / "clients" / agency.config.client_profile)
         assert client.config.jurisdiction == "CL"
+
+
+def test_agency_profile_rejects_duplicate_demo_scenarios(tmp_path):
+    raw = yaml.safe_load((ROOT / "agencies" / "imr_demo.yaml").read_text(encoding="utf-8"))
+    raw["demo_scenarios"] = ["A", "A"]
+    path = tmp_path / "duplicate-scenarios.yaml"
+    path.write_text(yaml.safe_dump(raw), encoding="utf-8")
+    with pytest.raises(ValidationError):
+        load_agency_catalog(tmp_path)
 
 
 def test_jurisdiction_config_rejects_unsafe_fractional_rates():

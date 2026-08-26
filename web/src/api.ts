@@ -3,6 +3,13 @@ import type { DemoCatalog, DispatchState, Job } from "./types";
 export const API_ROOT = import.meta.env.VITE_API_URL || `${window.location.protocol}//${window.location.hostname}:8000/api`;
 export const API_DOCS_URL = `${API_ROOT.replace(/\/api$/, "")}/docs`;
 
+export class ApiError extends Error {
+  constructor(message: string, readonly status: number) {
+    super(message);
+    this.name = "ApiError";
+  }
+}
+
 function responseError(body: string, status: number): string {
   try {
     const parsed = JSON.parse(body) as { detail?: unknown };
@@ -20,7 +27,7 @@ async function request<T>(path: string, orgId?: string, init?: RequestInit): Pro
   const response = await fetch(`${API_ROOT}${path}`, { ...init, headers });
   if (!response.ok) {
     const detail = await response.text();
-    throw new Error(responseError(detail, response.status));
+    throw new ApiError(responseError(detail, response.status), response.status);
   }
   return response.json() as Promise<T>;
 }

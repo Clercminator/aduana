@@ -35,6 +35,8 @@ export function IntakeView({
   const folderRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
   const selectedAgency = agencies.find((item) => item.organization_id === selectedOrgId);
+  const enabledScenarios = selectedAgency?.demo_scenarios ?? [];
+  const hasDemoScenarios = enabledScenarios.length > 0;
   const policyRate = selectedAgency?.policy.policy_rate
     ? `${(Number(selectedAgency.policy.policy_rate) * 100).toFixed(4)} %`
     : "según documento";
@@ -126,12 +128,16 @@ export function IntakeView({
       <section className="demo-strip">
         <div>
           <strong>¿Quiere ver el flujo completo?</strong>
-          <span>Use documentos sintéticos preparados para una demostración repetible.</span>
+          <span>
+            {hasDemoScenarios
+              ? "Use documentos sintéticos preparados para una demostración repetible."
+              : "Los expedientes sintéticos pertenecen a IMR Demo. Cambie a IMR para evitar mezclar perfiles; la carga de PDFs propios sigue disponible."}
+          </span>
         </div>
-        <button className="button ghost" disabled={busy || !selectedOrgId} onClick={() => onDemo("A")}><Play size={16} /> Escenario A · limpio</button>
-        <button className="button warning" disabled={busy || !selectedOrgId} onClick={() => onDemo("B")}><Play size={16} /> Escenario B · 7 alertas</button>
-        <button className="button volume" disabled={busy || !selectedOrgId} onClick={() => onDemo("C")}><Play size={16} /> Escenario C · 45 PDFs</button>
-        <button className="button ghost" disabled={busy || !selectedOrgId} onClick={() => onDemo("D")}><Play size={16} /> Escenario D · CIF</button>
+        <button className="button ghost" disabled={busy || !enabledScenarios.includes("A")} onClick={() => onDemo("A")}><Play size={16} /> Escenario A · limpio</button>
+        <button className="button warning" disabled={busy || !enabledScenarios.includes("B")} onClick={() => onDemo("B")}><Play size={16} /> Escenario B · 7 alertas</button>
+        <button className="button volume" disabled={busy || !enabledScenarios.includes("C")} onClick={() => onDemo("C")}><Play size={16} /> Escenario C · 45 PDFs</button>
+        <button className="button ghost" disabled={busy || !enabledScenarios.includes("D")} onClick={() => onDemo("D")}><Play size={16} /> Escenario D · CIF</button>
       </section>
     </main>
   );

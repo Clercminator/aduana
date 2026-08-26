@@ -24,7 +24,8 @@ Abra la aplicación y señale el flujo visible: documentos, extracción con evid
 
 Si conviene demostrar que la base no está amarrada a una sola agencia, dedique como máximo
 20–30 segundos al selector: cambie a **Pacífico Demo**, muestre que cambian cliente, colores,
-póliza y defaults, y vuelva a **IMR Demo** antes de cargar el escenario A.
+póliza y defaults. Señale que los escenarios quedan deshabilitados porque sus documentos
+son de Falabella, y vuelva a **IMR Demo** antes de cargar el escenario A.
 
 > “El mismo motor puede cargar una configuración versionada distinta por agencia, sin
 > reescribir la aplicación. Esta pantalla demuestra la separación básica; usuarios, roles,

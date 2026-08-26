@@ -1,6 +1,6 @@
 import { CircleHelp, RotateCcw } from "lucide-react";
 import { useCallback, useEffect, useState, type CSSProperties } from "react";
-import { api } from "./api";
+import { api, ApiError } from "./api";
 import imrLogoUrl from "./assets/imr-logo.png";
 import { HelpDialog } from "./components/HelpDialog";
 import { IntakeView } from "./components/IntakeView";
@@ -100,7 +100,9 @@ export default function App() {
         if (active) {
           localStorage.removeItem(`demo_dispatch_id:${selectedOrgId}`);
           setDispatchId(null);
-          setError(caught instanceof Error ? caught.message : "No se pudo cargar el despacho");
+          if (!(caught instanceof ApiError && caught.status === 404)) {
+            setError(caught instanceof Error ? caught.message : "No se pudo cargar el despacho");
+          }
         }
       });
     return () => {

@@ -90,38 +90,51 @@ test("escenario de 40 facturas pagina la vista y genera 40 DIN", async ({ page }
   await expect(page.getByRole("table").getByText("BN26010640", { exact: true })).toBeVisible();
 });
 
-test("cambia de agencia, aplica su perfil y bloquea acceso cruzado", async ({ page, request }) => {
+test("impide fixtures de otra agencia y bloquea acceso cruzado", async ({ page, request }) => {
   await page.goto("/");
   const agency = page.getByLabel("Agencia activa");
   await agency.selectOption(pacificoOrgId);
   await expect(page.getByText("Pacífico Imports (sintético)")).toBeVisible();
   await expect(page.getByText("Póliza 0.0550 %")).toBeVisible();
   await expect(page.getByText("Pacífico Demo")).toBeVisible();
+  await expect(page.getByText(/expedientes sintéticos pertenecen a IMR Demo/i)).toBeVisible();
+  await expect(page.getByRole("button", { name: /escenario a/i })).toBeDisabled();
+
+  const rejectedFixture = await request.post(`${apiRoot}/demo/load/A`, {
+    headers: { "X-Org-ID": pacificoOrgId },
+  });
+  expect(rejectedFixture.status()).toBe(403);
+  expect((await rejectedFixture.json()).detail).toContain("seleccione IMR Demo");
   if (screenshotRoot) {
     await page.screenshot({ path: path.join(screenshotRoot, "pacifico-intake.png"), fullPage: true });
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.screenshot({ path: path.join(screenshotRoot, "pacifico-intake-mobile.png"), fullPage: true });
+    await page.setViewportSize({ width: 1536, height: 1024 });
   }
 
+  await agency.selectOption(imrOrgId);
+  await expect(page.getByRole("button", { name: /escenario a/i })).toBeEnabled();
   const loadResponse = page.waitForResponse(
     (response) => response.url().endsWith("/api/demo/load/A") && response.request().method() === "POST",
   );
   await page.getByRole("button", { name: /escenario a/i }).click();
   const created = await (await loadResponse).json() as { dispatch_id: string; job_id: string };
   await expect(page.getByRole("heading", { name: "700611", exact: true })).toBeVisible({ timeout: 60_000 });
-  await expect(page.getByText(/Aduanas Pacífico · Agencia Demo/)).toBeVisible();
+  await expect(page.getByText(/IMR Tech · Agencia Demo/)).toBeVisible();
 
   const ownState = await request.get(`${apiRoot}/dispatches/${created.dispatch_id}`, {
-    headers: { "X-Org-ID": pacificoOrgId },
+    headers: { "X-Org-ID": imrOrgId },
   });
   expect(ownState.status()).toBe(200);
-  expect((await ownState.json()).dispatch.client).toBe("PACIFICO_IMPORTS_DEMO");
+  expect((await ownState.json()).dispatch.client).toBe("FALABELLA_RETAIL");
 
   const crossTenant = await request.get(`${apiRoot}/dispatches/${created.dispatch_id}`, {
-    headers: { "X-Org-ID": imrOrgId },
+    headers: { "X-Org-ID": pacificoOrgId },
   });
   expect(crossTenant.status()).toBe(404);
 
   const crossTenantJob = await request.get(`${apiRoot}/jobs/${created.job_id}`, {
-    headers: { "X-Org-ID": imrOrgId },
+    headers: { "X-Org-ID": pacificoOrgId },
   });
   expect(crossTenantJob.status()).toBe(404);
 
@@ -129,16 +142,36 @@ test("cambia de agencia, aplica su perfil y bloquea acceso cruzado", async ({ pa
   expect(missingContext.status()).toBe(400);
   await expect(page.locator(".react-pdf__Page canvas")).toBeVisible();
   if (screenshotRoot) {
-    await page.screenshot({ path: path.join(screenshotRoot, "pacifico-tenant.png"), fullPage: true });
+    await page.screenshot({ path: path.join(screenshotRoot, "imr-tenant.png"), fullPage: true });
   }
 });
 
 test("rechaza archivos que no son PDF con un mensaje visible", async ({ page }) => {
   await page.goto("/");
+  await expect(page.getByRole("button", { name: "Elegir archivos" })).toBeEnabled();
   await page.locator('input[type="file"]').nth(1).setInputFiles({
     name: "archivo-ejecutable.exe",
     mimeType: "application/octet-stream",
     buffer: Buffer.from("not a pdf"),
   });
   await expect(page.getByRole("alert")).toContainText("solo se permiten archivos .pdf");
+});
+
+test("descarta silenciosamente un despacho local eliminado por reset", async ({ page }) => {
+  const staleDispatchId = "11111111-1111-1111-1111-111111111111";
+  await page.addInitScript(
+    ({ orgId, dispatchId }) => {
+      localStorage.setItem("demo_org_id", orgId);
+      localStorage.setItem(`demo_dispatch_id:${orgId}`, dispatchId);
+    },
+    { orgId: imrOrgId, dispatchId: staleDispatchId },
+  );
+
+  await page.goto("/");
+  await expect(page.getByRole("heading", { name: /documentos dispersos/i })).toBeVisible();
+  await expect(page.getByRole("alert")).toHaveCount(0);
+  await expect.poll(() => page.evaluate(
+    (orgId) => localStorage.getItem(`demo_dispatch_id:${orgId}`),
+    imrOrgId,
+  )).toBeNull();
 });

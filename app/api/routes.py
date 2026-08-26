@@ -218,6 +218,7 @@ def demo_agencies(settings: Settings = Depends(get_settings)) -> dict[str, Any]:
                 "name": agency.name,
                 "client": client.client,
                 "client_label": agency.client_label,
+                "demo_scenarios": agency.demo_scenarios,
                 "branding": agency.branding.model_dump(mode="json"),
                 "policy": {
                     "insurance_mode": client.insurance.mode,
@@ -280,6 +281,22 @@ def load_demo(
     key = scenario.upper()
     if key not in scenarios:
         raise HTTPException(404, "Escenario debe ser A, B, C o D")
+    agency = next(
+        (
+            item.config
+            for item in load_agency_catalog(settings.agency_root)
+            if item.config.organization_id == tenant.org_id
+        ),
+        None,
+    )
+    if agency is None:
+        raise HTTPException(404, "La organización no tiene un perfil de agencia configurado")
+    if key not in agency.demo_scenarios:
+        raise HTTPException(
+            403,
+            "Este escenario sintético no está habilitado para la agencia activa; "
+            "seleccione IMR Demo",
+        )
     folder, expected_invoices = scenarios[key]
     dispatch = _create_dispatch(db, settings, tenant, expected_invoices=expected_invoices)
     paths = sorted((settings.fixture_root / folder).glob("*.pdf"))

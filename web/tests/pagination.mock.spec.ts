@@ -111,6 +111,7 @@ test("pagina líneas y cuenta una DIN por factura única", async ({ page }) => {
             name: "IMR Tech · Agencia Demo",
             client: "FALABELLA_RETAIL",
             client_label: "Falabella Retail",
+            demo_scenarios: ["A", "B", "C", "D"],
             branding: { short_name: "IMR Demo", primary_color: "#071B33", accent_color: "#008F83" },
             policy: {
               insurance_mode: "policy_rate",

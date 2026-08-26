@@ -111,6 +111,7 @@ export type DemoAgency = {
   name: string;
   client: string;
   client_label: string;
+  demo_scenarios: Array<"A" | "B" | "C" | "D">;
   branding: {
     short_name: string;
     primary_color: string;

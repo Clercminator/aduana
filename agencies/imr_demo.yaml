@@ -3,6 +3,7 @@ slug: imr-demo
 name: IMR Tech · Agencia Demo
 client_profile: falabella.yaml
 client_label: Falabella Retail
+demo_scenarios: [A, B, C, D]
 branding:
   short_name: IMR Demo
   primary_color: "#071B33"

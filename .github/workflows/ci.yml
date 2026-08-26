@@ -65,6 +65,24 @@ jobs:
       - name: Run browser E2E
         run: npm run test:e2e
         working-directory: web
+      - name: Verify multi-agency reset
+        shell: bash
+        run: |
+          set -euo pipefail
+          compose=(docker compose -p aduana-ci -f docker-compose.yml -f docker-compose.e2e.yml)
+          "${compose[@]}" stop worker
+          curl --fail --silent --show-error \
+            -X POST \
+            -H "X-Org-ID: 00000000-0000-0000-0000-000000000002" \
+            -F "files=@fixtures/scenario_A_clean/00_INSTRUCCION_DESPACHO_700611.pdf;type=application/pdf" \
+            http://127.0.0.1:8000/api/intake/batches >/tmp/pacifico-intake.json
+          org_count=$("${compose[@]}" exec -T db psql -U aduanera -d aduanera -Atc \
+            "select count(distinct org_id) from dispatch")
+          test "$org_count" = "2"
+          "${compose[@]}" exec -T api python scripts/reset_demo.py
+          remaining=$("${compose[@]}" exec -T db psql -U aduanera -d aduanera -Atc \
+            "select count(*) from dispatch")
+          test "$remaining" = "0"
       - name: Print container logs on failure
         if: failure()
         run: docker compose -p aduana-ci -f docker-compose.yml -f docker-compose.e2e.yml logs --no-color --tail 250

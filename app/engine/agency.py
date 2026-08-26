@@ -3,9 +3,10 @@ from __future__ import annotations
 import hashlib
 import uuid
 from pathlib import Path
+from typing import Literal
 
 import yaml
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class AgencyBrandingConfig(BaseModel):
@@ -20,7 +21,15 @@ class AgencyProfileConfig(BaseModel):
     name: str = Field(min_length=3, max_length=200)
     client_profile: str = Field(pattern=r"^[a-z0-9_-]+\.yaml$")
     client_label: str = Field(min_length=2, max_length=120)
+    demo_scenarios: list[Literal["A", "B", "C", "D"]] = Field(default_factory=list)
     branding: AgencyBrandingConfig
+
+    @field_validator("demo_scenarios")
+    @classmethod
+    def scenarios_are_unique(cls, scenarios: list[str]) -> list[str]:
+        if len(scenarios) != len(set(scenarios)):
+            raise ValueError("demo_scenarios must be unique")
+        return scenarios
 
 
 class LoadedAgencyProfile(BaseModel):
