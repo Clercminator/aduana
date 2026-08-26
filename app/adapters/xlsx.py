@@ -4,7 +4,7 @@ import hashlib
 import io
 from copy import copy
 from datetime import date
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 from pathlib import Path
 from typing import Any
 
@@ -34,7 +34,10 @@ def _sheet(workbook: Workbook, title: str, headers: list[str]):
 
 def _fit(ws) -> None:
     for column in ws.columns:
-        width = min(max(len(str(cell.value or "")) for cell in column) + 2, 55)
+        width = min(
+            max(len(str(cell.value if cell.value is not None else "")) for cell in column) + 2,
+            55,
+        )
         ws.column_dimensions[get_column_letter(column[0].column)].width = width
 
 
@@ -74,6 +77,8 @@ def _invoice_summaries(lines: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 "capitalized": Decimal("0"),
                 "recoverable": Decimal("0"),
                 "levies": {},
+                "levy_rates": {},
+                "duty_rate": Decimal("0"),
             },
         )
         summary["fob"] += Decimal(str(line.get("fob") or "0"))
@@ -87,11 +92,78 @@ def _invoice_summaries(lines: list[dict[str, Any]]) -> list[dict[str, Any]]:
         summary["payable"] += Decimal(str(declaration_view.get("payable_levies") or "0"))
         summary["capitalized"] += Decimal(str(cost_view.get("capitalized_levies") or "0"))
         summary["recoverable"] += Decimal(str(cost_view.get("recoverable_levies_excluded") or "0"))
+        summary["duty_rate"] = Decimal(str(line.get("duty_rate") or "0"))
         for index, levy in enumerate(line.get("levies") or []):
             summary["levies"][index] = summary["levies"].get(index, Decimal("0")) + Decimal(
                 str((levy.get("amount") or {}).get("amount") or "0")
             )
+            summary["levy_rates"][str(levy.get("code") or index)] = Decimal(
+                str(levy.get("rate") or "0")
+            )
     return list(grouped.values())
+
+
+def _round_control(value: Decimal) -> Decimal:
+    return value.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+
+def _coverage_controls(invoices: list[dict[str, Any]], coverage_pct: Decimal) -> list[Decimal]:
+    """Round coverage by invoice while reconciling to the document-level control total."""
+    if not invoices:
+        return []
+    controls = [
+        _round_control((invoice["fob"] + invoice["freight"]) * coverage_pct) for invoice in invoices
+    ]
+    global_control = _round_control(
+        sum((invoice["fob"] + invoice["freight"] for invoice in invoices), Decimal("0"))
+        * coverage_pct
+    )
+    residual = global_control - sum(controls, Decimal("0"))
+    if residual:
+        largest = max(range(len(invoices)), key=lambda index: invoices[index]["fob"])
+        controls[largest] += residual
+    return controls
+
+
+def _populate_legacy_summary(workbook: Workbook, invoice_count: int, master_total_row: int) -> None:
+    """Extend the operator's legacy summary to the same 100-invoice capacity as the master."""
+    ws = workbook["Prorrateo resumen"]
+    original_total_row = 32
+    total_row = 102
+    if ws.max_row < total_row:
+        ws.insert_rows(original_total_row, total_row - original_total_row)
+        for row in range(original_total_row, total_row):
+            for column in range(1, 8):
+                source = ws.cell(original_total_row - 1, column)
+                target = ws.cell(row, column)
+                target._style = copy(source._style)
+                if source.number_format:
+                    target.number_format = source.number_format
+
+    for row in range(2, total_row):
+        has_invoice = row <= invoice_count + 1
+        ws.row_dimensions[row].hidden = not has_invoice
+        ws[f"A{row}"] = "='Prorrateo General'!A2" if row == 2 and has_invoice else None
+        if has_invoice:
+            ws[f"B{row}"] = f"='Prorrateo General'!E{row}"
+            ws[f"C{row}"] = f"='Prorrateo General'!J{row}"
+            ws[f"D{row}"] = f"='Prorrateo General'!F{row}"
+            ws[f"E{row}"] = f"='Prorrateo General'!M{row}"
+            ws[f"F{row}"] = f"='Prorrateo General'!N{row}"
+            ws[f"G{row}"] = f"='Prorrateo General'!C{row}"
+        else:
+            for column in "BCDEFG":
+                ws[f"{column}{row}"] = None
+
+    ws.row_dimensions[total_row].hidden = False
+    ws[f"A{total_row}"] = "Totales"
+    ws[f"B{total_row}"] = f"='Prorrateo General'!E{master_total_row}"
+    ws[f"C{total_row}"] = None
+    ws[f"D{total_row}"] = f"='Prorrateo General'!F{master_total_row}"
+    ws[f"E{total_row}"] = None
+    ws[f"F{total_row}"] = None
+    ws[f"G{total_row}"] = f"='Prorrateo General'!C{master_total_row}"
+    ws.freeze_panes = "A2"
 
 
 def _populate_master(workbook: Workbook, state: dict[str, Any]) -> None:
@@ -119,6 +191,7 @@ def _populate_master(workbook: Workbook, state: dict[str, Any]) -> None:
     ws["B2"] = Decimal(str(totals.get("fob", "0")))
     ws["B7"] = max((Decimal(str(line.get("duty_rate", "0"))) for line in lines), default=Decimal(0))
     ws["Q2"] = Decimal(str(calculation.get("policy", {}).get("insurance_coverage_pct", "0")))
+    coverage_controls = _coverage_controls(invoices, ws["Q2"].value)
 
     line_capacity = 100
     original_total_row = 52
@@ -134,6 +207,7 @@ def _populate_master(workbook: Workbook, state: dict[str, Any]) -> None:
                     target.number_format = source.number_format
 
     for row in range(2, total_row):
+        ws.row_dimensions[row].hidden = row > len(invoices) + 1
         for column in ("C", "J", "L", "M", "N", "O", "P"):
             ws[f"{column}{row}"] = None
         ws[f"D{row}"] = f"=IFERROR(C{row}/$C${total_row},0)"
@@ -142,7 +216,7 @@ def _populate_master(workbook: Workbook, state: dict[str, Any]) -> None:
         ws[f"G{row}"] = f"=C{row}+E{row}+F{row}"
         ws[f"H{row}"] = f"=ROUND(G{row}*O{row},2)"
         ws[f"I{row}"] = f"=ROUND((G{row}+H{row})*P{row},2)"
-        ws[f"K{row}"] = f"=ROUND((C{row}+E{row})*$Q$2,2)"
+        ws[f"K{row}"] = None
 
     for index, invoice in enumerate(invoices, start=2):
         if index >= total_row:
@@ -155,14 +229,9 @@ def _populate_master(workbook: Workbook, state: dict[str, Any]) -> None:
             ws[f"L{index}"] = date.fromisoformat(str(sailing))
         ws[f"M{index}"] = dispatch.get("despacho_no")
         ws[f"N{index}"] = invoice["invoice"]
-        duty = invoice["levies"].get(0, Decimal("0"))
-        downstream = sum(
-            (amount for levy_index, amount in invoice["levies"].items() if levy_index != 0),
-            Decimal("0"),
-        )
-        ws[f"O{index}"] = duty / invoice["customs_value"] if invoice["customs_value"] else 0
-        downstream_base = invoice["customs_value"] + duty
-        ws[f"P{index}"] = downstream / downstream_base if downstream_base else 0
+        ws[f"O{index}"] = invoice["duty_rate"]
+        ws[f"P{index}"] = invoice["levy_rates"].get("IVA", Decimal("0"))
+        ws[f"K{index}"] = coverage_controls[index - 2]
 
     for column in ("C", "D", "E", "F", "G", "H", "I", "K"):
         ws[f"{column}{total_row}"] = f"=SUM({column}2:{column}{total_row - 1})"
@@ -173,6 +242,9 @@ def _populate_master(workbook: Workbook, state: dict[str, Any]) -> None:
     ws.sheet_view.showGridLines = False
     ws["F1"] = "Prima póliza cliente"
     ws["K1"] = "Cobertura configurada (control)"
+    ws["Q1"] = "Factor cobertura"
+    ws["Q2"].number_format = "0.00%"
+    _populate_legacy_summary(workbook, len(invoices), total_row)
 
 
 def build_workbook(state: dict[str, Any], template_path: Path = TEMPLATE_PATH) -> bytes:
@@ -385,6 +457,7 @@ def build_workbook(state: dict[str, Any], template_path: Path = TEMPLATE_PATH) -
     ]
     for sheet_name in generated:
         _fit(workbook[sheet_name])
+    ws_docs.column_dimensions["F"].width = max(ws_docs.column_dimensions["F"].width, 7)
     workbook.active = workbook.sheetnames.index("Prorrateo General")
     buffer = io.BytesIO()
     workbook.save(buffer)

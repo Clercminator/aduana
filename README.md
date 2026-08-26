@@ -228,6 +228,14 @@ validación legal, aduanera ni productiva.
 - Excel, las vistas declaración/costo y el número de DIN agregan por factura única. Una
   factura multilínea produce varias líneas de cálculo, pero una sola fila operativa y una
   sola DIN.
+- Las dos hojas operativas del Excel admiten las mismas 100 facturas. `Prorrateo resumen`
+  expande y muestra todas las facturas, y sus totales apuntan a la fila final dinámica del
+  master. Las filas de capacidad no utilizadas quedan ocultas.
+- La cobertura de póliza por factura absorbe el residual de redondeo para cuadrar exactamente
+  con el control global (USD 576.230,50 en el escenario C). Las columnas de tasa muestran la
+  tasa configurada —por ejemplo 19 %— y no un cociente inverso contaminado por redondeo.
+- La hoja `Documentos` dimensiona correctamente los valores booleanos de OCR; ya no muestra
+  `#####` por una columna demasiado estrecha.
 - Total, moneda de factura, total de línea y flete/moneda del B/L dejaron de asumir cero o
   USD silenciosamente. La ausencia o invalidez bloquea el cálculo con `VAL-03`, respetando
   la regla de nunca estimar un dato financiero obligatorio.
@@ -650,7 +658,8 @@ arranque, preflight, diagnóstico, reset multiagencia y apagado está documentad
 - Motor con `Decimal`, normalización a FOB, asignación residual determinista, expresiones de
   tributos con AST restringido, preferencia por línea, FX mensual y doce reglas configurables.
 - Exportación del prorrateo basada en `PRORRATEO MASTER.xlsx`: conserva sus dos hojas
-  operativas, calcula la prima desde el perfil de cliente, agrega tasa de derecho por línea y
+  operativas hasta 100 facturas, calcula la prima desde el perfil de cliente, reconcilia el
+  control de cobertura, agrega tasas configuradas por línea y
   añade Resumen, Documentos, Extracciones, Validaciones, Prorrateo, Tributos, Vista
   declaración, Vista costo y Trazabilidad. La copia registra SHA-256 de plantilla,
   jurisdicción, cliente y cálculo reproducible, y admite hasta 100 facturas.
@@ -671,6 +680,12 @@ Four dispatches, all synthetic Chile imports from China for the same importer:
 `scenario_E_document_realism/` no es un despacho coherente: es un pack separado de 12
 formatos de proveedor, dos certificados de origen y dos fotos sin capa de texto para QA de
 documentos/OCR.
+
+El escenario C sí es un despacho coherente y sus 45 PDFs usan maquetación de documentos de
+comercio exterior: factura tabulada con datos de comprador y embarque, packing list de dos
+páginas, B/L con casillas de expedidor/consignatario/ruta, certificado de seguro con bloque de
+cobertura y certificado de origen Form F con tabla y sello sintético. Se inspiran en formatos
+habituales, pero no copian marcas ni pretenden sustituir documentos oficiales.
 
 Every document carries a footer marking it as synthetic. Nothing here is a real shipment.
 
@@ -787,7 +802,9 @@ an extraction tool and a system.
 This coherent synthetic dispatch contains 45 PDFs: one instruction, one B/L, 40 commercial
 invoices, one packing list, one insurance certificate and one certificate of origin. All
 invoice references, weights, packages, HS coverage and totals reconcile; all twelve controls
-pass. The current 45-PDF fixture has not yet had a full OpenRouter timing run; do not reuse the
+pass. The packet uses realistic, form-based layouts while retaining a text layer and explicit
+synthetic-document footer so extraction remains deterministic and nobody can mistake it for a
+real shipment. The current 45-PDF fixture has not yet had a full OpenRouter timing run; do not reuse the
 150,8-second result from the earlier 29-PDF version as though it measured this set.
 
 Recommended meeting flow:
@@ -837,7 +854,7 @@ on all eleven checks for both dispatches. Use it two ways:
   and that is the single biggest unknown before a real pilot.
 - **HS classification** — every HS code here is given on the invoice. Proposing a code from a
   product description is a separate, riskier capability and should stay suggest-and-approve.
-- **Fleet-scale throughput** — scenario C proves one 29-PDF dispatch, not a queue of two
+- **Fleet-scale throughput** — scenario C proves one 45-PDF dispatch, not a queue of two
   hundred simultaneous dispatches. Worker scaling and provider quotas still require a load
   test before making a capacity claim.
 

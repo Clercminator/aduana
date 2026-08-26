@@ -96,7 +96,12 @@ def _bill_of_lading(text: str) -> BillOfLading:
     load, shipped, discharge = _values(
         r"PORT OF LOADING PORT OF DISCHARGE\s+(.+?) \(ETD (\d{4}-\d{2}-\d{2})\) (.+?) \(ETA", text
     )
-    consignee = _values(r"CONSIGNEE \(OR ORDER\) NOTIFY PARTY\s+(.+?) AGENCIA", text)[0].strip()
+    consignee_match = re.search(r"CONSIGNEE:\s*([^\n]+)", text)
+    consignee = (
+        consignee_match.group(1).strip()
+        if consignee_match
+        else _values(r"CONSIGNEE \(OR ORDER\) NOTIFY PARTY\s+(.+?) AGENCIA", text)[0].strip()
+    )
     container, packages, weight, cbm = _values(
         r"([A-Z]{4}\d{7}) / 40'HC\s+(\d+)\s+SAID TO CONTAIN:\s+([\d,.]+)\s+([\d.]+)", text
     )
@@ -110,7 +115,7 @@ def _bill_of_lading(text: str) -> BillOfLading:
         port_loading=_c(load, _line(text, "PORT OF LOADING") + " " + _line(text, "(ETD")),
         port_discharge=_c(discharge, _line(text, "(ETD")),
         shipped_on_board_date=_c(date.fromisoformat(shipped), _line(text, "SHIPPED ON BOARD")),
-        consignee_name=_c(consignee, _line(text, "FALABELLA RETAIL S.A.")),
+        consignee_name=_c(consignee, _line(text, consignee)),
         gross_weight_kg=_c(_decimal(weight), _line(text, "SAID TO CONTAIN")),
         package_count=_c(int(packages), _line(text, "SAID TO CONTAIN")),
         measurement_cbm=_c(_decimal(cbm), _line(text, "SAID TO CONTAIN")),
@@ -128,9 +133,9 @@ def _bill_of_lading(text: str) -> BillOfLading:
 
 def _invoice(text: str) -> CommercialInvoice:
     number = _values(r"Invoice No\. (BN\d{8})", text)[0]
-    invoice_date = _values(r"\nDate (\d{4}-\d{2}-\d{2})", text)[0]
-    supplier = text.split(" COMMERCIAL INVOICE", 1)[0].splitlines()[0].strip()
-    consignee = _values(r"SOLD TO / CONSIGNEE SHIPMENT\s+(.+?) Vessel:", text)[0].strip()
+    invoice_date = _values(r"\bDate (\d{4}-\d{2}-\d{2})", text)[0]
+    supplier = _values(r"(?:^|\n)([^\n]+?) COMMERCIAL INVOICE(?:\n|$)", text)[0].strip()
+    consignee = _values(r"\n([^\n]+?) Vessel:", text)[0].strip()
     row = next(
         line
         for line in text.splitlines()
@@ -159,7 +164,7 @@ def _invoice(text: str) -> CommercialInvoice:
         invoice_number=_c(number, _line(text, "Invoice No.")),
         invoice_date=_c(date.fromisoformat(invoice_date), _line(text, "Date ")),
         supplier_name=_c(supplier, supplier),
-        consignee_name=_c(consignee, _line(text, "FALABELLA RETAIL")),
+        consignee_name=_c(consignee, _line(text, consignee)),
         incoterm=_c(
             _values(r"Incoterms 2020: ((?:FOB|FCA|EXW|CFR|CPT|CIF|CIP|DAP|DDP)(?: [A-Z]+)?)", text)[
                 0
@@ -187,7 +192,7 @@ def _invoice(text: str) -> CommercialInvoice:
 
 def _packing_list(text: str) -> PackingList:
     bl = _values(r"B/L: ([A-Z0-9-]+)", text)[0]
-    consignee = _values(r"CONSIGNEE SHIPMENT\s+(.+?) B/L:", text)[0].strip()
+    consignee = _values(r"\n([^\n]+?) B/L:", text)[0].strip()
     container = _values(r"Container / Seal: ([A-Z]{4}\d{7})", text)[0]
     total_packages, gross, net = _values(r"TOTAL (\d+) ([\d,.]+) ([\d,.]+)", text)
     cbm = _values(r"Total measurement: ([\d.]+) CBM", text)[0]
@@ -211,7 +216,7 @@ def _packing_list(text: str) -> PackingList:
             )
     return PackingList(
         bl_number=_c(bl, _line(text, "B/L:")),
-        consignee_name=_c(consignee, _line(text, "FALABELLA RETAIL")),
+        consignee_name=_c(consignee, _line(text, consignee)),
         container_number=_c(container, _line(text, "Container / Seal")),
         package_count=_c(int(total_packages), _line(text, "TOTAL ")),
         gross_weight_kg=_c(_decimal(gross), _line(text, "TOTAL ")),
@@ -223,7 +228,12 @@ def _packing_list(text: str) -> PackingList:
 
 def _insurance(text: str) -> InsuranceCertificate:
     number = _values(r"Certificado N° ([A-Z0-9-]+)", text)[0]
-    assured = _values(r"ASEGURADO / ASSURED PÓLIZA FLOTANTE N°\s+(.+?) FL-", text)[0].strip()
+    assured_match = re.search(r"ASSURED:\s*(.+?) FL-", text)
+    assured = (
+        assured_match.group(1).strip()
+        if assured_match
+        else _values(r"ASEGURADO / ASSURED PÓLIZA FLOTANTE N°\s+(.+?) FL-", text)[0].strip()
+    )
     bl = _values(r"Conocimiento de embarque \(B/L\) ([A-Z0-9-]+)", text)[0]
     insured = _values(r"Suma asegurada USD ([\d,.]+)", text)[0]
     rate = _values(r"Tasa de prima ([\d,]+) %", text)[0].replace(",", ".")
@@ -231,7 +241,7 @@ def _insurance(text: str) -> InsuranceCertificate:
     invoices = list(dict.fromkeys(re.findall(r"BN\d{8}", text)))
     return InsuranceCertificate(
         certificate_number=_c(number, _line(text, "Certificado N°")),
-        assured_name=_c(assured, _line(text, "FALABELLA RETAIL")),
+        assured_name=_c(assured, _line(text, assured)),
         bl_number=_c(bl, _line(text, "Conocimiento de embarque")),
         sum_insured=_c(_decimal(insured), _line(text, "Suma asegurada")),
         premium=_c(_decimal(premium), _line(text, "Prima USD")),
@@ -246,11 +256,13 @@ def _insurance(text: str) -> InsuranceCertificate:
 
 def _origin(text: str) -> CertificateOfOrigin:
     number = _values(r"CERTIFICATE NO\.\s+.+? ([A-Z]\d{2}CL\d+)", text, re.S)[0]
-    exporter = text.splitlines()[3].split(number)[0].strip()
-    importer_line = next(
-        line.strip() for line in text.splitlines() if line.strip().startswith("FALABELLA RETAIL")
+    exporter_line = next(
+        line
+        for line in text.splitlines()
+        if number in line and "CERTIFICATE NO" not in line.upper()
     )
-    importer = importer_line.split("Departure date:", 1)[0].strip()
+    exporter = exporter_line.split(number, 1)[0].strip()
+    importer = _values(r"\n([^\n]+?) Departure date:", text)[0].strip()
     departure = _values(r"Departure date: (\d{4}-\d{2}-\d{2})", text)[0]
     issue_dates = re.findall(r"Place and date:.*?(\d{4}-\d{2}-\d{2})", text)
     issue = issue_dates[-1]
@@ -275,7 +287,7 @@ def _origin(text: str) -> CertificateOfOrigin:
         certificate_number=_c(number, _line(text, number)),
         issue_date=_c(date.fromisoformat(issue), _line(text, issue)),
         exporter_name=_c(exporter, _line(text, exporter)),
-        importer_name=_c(importer, _line(text, "FALABELLA RETAIL")),
+        importer_name=_c(importer, _line(text, importer)),
         agreement_name=_c("TLC Chile–China", _line(text, "FREE TRADE AGREEMENT")),
         departure_date=_c(date.fromisoformat(departure), _line(text, "Departure date")),
         is_retrospective=_c("ISSUED RETROSPECTIVELY" in text.upper(), _line(text, "5. REMARKS")),

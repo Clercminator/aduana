@@ -1,6 +1,7 @@
 {
   "scenario": "C",
-  "purpose": "high-volume parallel-processing demonstration",
+  "purpose": "high-volume parallel-processing demonstration with realistic document layouts",
+  "document_style": "synthetic documents modeled on common trade-document forms",
   "uploaded_pdfs": 45,
   "commercial_invoices": 40,
   "despacho": "700613",

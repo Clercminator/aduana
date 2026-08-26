@@ -139,3 +139,30 @@ def test_excel_uses_one_master_and_summary_row_per_multiline_invoice(
     ]
     assert workbook["Vista declaración"].max_row == 4
     assert workbook["Vista costo"].max_row == 4
+
+
+def test_volume_excel_reconciles_and_expands_legacy_summary(
+    scenario_c, chile_cfg, falabella_cfg, demo_fx
+):
+    state = _state(scenario_c, chile_cfg, falabella_cfg, demo_fx)
+    state["dispatch"]["despacho_no"] = "700613"
+    state["dispatch"]["referencia"] = "54415CLFA/26J28-9"
+    workbook = load_workbook(io.BytesIO(build_workbook(state)), data_only=False)
+
+    master = workbook["Prorrateo General"]
+    summary = workbook["Prorrateo resumen"]
+    assert [master[f"N{row}"].value for row in range(2, 42)] == [
+        f"BN260106{index:02d}" for index in range(1, 41)
+    ]
+    assert sum(
+        (Decimal(str(master[f"K{row}"].value)) for row in range(2, 42)), Decimal("0")
+    ) == Decimal("576230.50")
+    assert {Decimal(str(master[f"P{row}"].value)) for row in range(2, 42)} == {Decimal("0.19")}
+    assert all(master.row_dimensions[row].hidden for row in range(42, 102))
+
+    assert all(not summary.row_dimensions[row].hidden for row in range(2, 42))
+    assert summary["F41"].value == "='Prorrateo General'!N41"
+    assert summary["B102"].value == "='Prorrateo General'!E102"
+    assert summary["D102"].value == "='Prorrateo General'!F102"
+    assert summary["G102"].value == "='Prorrateo General'!C102"
+    assert workbook["Documentos"].column_dimensions["F"].width >= 7
