@@ -1,81 +1,144 @@
-# Automatización de despachos aduaneros — demo local
+# Automatización de despachos aduaneros
 
-Prototipo ejecutable que ingiere documentos de importación, clasifica y extrae sus datos,
-los contrasta entre documentos, calcula *prorrateo*, valoración y tributos, y genera
-artefactos provisionales para revisión humana. El repositorio incluye la aplicación
-completa, cuatro expedientes deterministas y un pack de realismo documental; no es solo un
-dataset.
+Motor diseñado para configurarse por país que recibe los documentos de una importación, los
+clasifica y extrae, los contrasta entre sí, calcula el prorrateo y los tributos, y entrega un
+Excel de conciliación y un borrador de declaración para que una persona revise y apruebe.
 
-> **Estado al 26 de agosto de 2026:** demo funcional para Chile, ejecutable localmente con
-> Docker y validada contra fixtures sintéticos. **No está lista para producción ni para
-> presentar una DIN.** El código se publica en
-> `https://github.com/Clercminator/aduana`; una publicación en GitHub no equivale a un
-> despliegue productivo ni elimina los pendientes SaaS detallados abajo.
+## A quién se le vende y quién usa qué
+
+Hay tres niveles y conviene no confundirlos:
+
+| Nivel | Quién es | Rol en el sistema |
+|---|---|---|
+| **Sistema** | Este producto | Motor único, configurable por jurisdicción y por cliente |
+| **Agencia de aduanas** | **El cliente que paga.** Tramita despachos por cuenta de terceros | Es la *organización* (`org_id`). Hoy tiene configuración y marca propias; identidad, usuarios y roles están pendientes |
+| **Importador** | El cliente de la agencia. Ejemplo: Falabella | Es el *perfil de cliente* (`clients/*.yaml`): póliza, incoterm habitual, base de asignación |
+
+El comprador es la **agencia**, no el importador. Falabella aparece en el repositorio porque
+es el cliente principal de la agencia con la que estamos diseñando, no porque sea nuestro
+cliente. El producto deberá permitir que una agencia gestione decenas de importadores, cada
+uno con su propia póliza y reglas. La demo actual provisiona un perfil de importador por
+agencia y todavía no incluye la administración de esa relación.
+
+Solo en Chile hay cientos de agencias de aduanas con el mismo problema. La apuesta del
+diseño es que **el proceso se puede compartir y las diferencias se expresan como parámetros
+y adaptadores**: tributos, bases, tasas, moneda, documentos y formulario. Por eso las reglas
+financieras viven en YAML versionado y no en el código; los pendientes multi-país se
+documentan explícitamente más abajo.
+
+## Estado
+
+**Al 26 de agosto de 2026:** demo funcional para Chile, ejecutable localmente con Docker y
+validada contra fixtures sintéticos. **No está lista para producción ni para presentar una
+DIN.** El código está en `https://github.com/Clercminator/aduana`; publicar en GitHub no
+equivale a desplegar. Antes de compartir el enlace, confirme con `git status -sb` que los
+commits que quiere mostrar están en el remoto.
+
+Regla de lectura del repositorio: **implementado** significa código ejecutable con pruebas
+sintéticas. **Validado** no significa validación legal ni aduanera sobre casos reales.
+
+## Índice
+
+- [Estado funcional en una página](#estado-funcional-en-una-página)
+- [Lo que confirmó la agencia](#lo-que-confirmó-la-agencia) — origen de las reglas de negocio
+- [Resumen de handoff para otra LLM](#resumen-de-handoff-para-otra-llm)
+- [Qué ya está construido](#qué-ya-está-construido)
+- [Arquitectura actual](#arquitectura-actual)
+- [Decisiones que no deben romperse](#decisiones-que-no-deben-romperse)
+- [Mapa del repositorio real](#mapa-del-repositorio-real)
+- [Contrato HTTP implementado](#contrato-http-implementado)
+- [Configuración](#configuración)
+- [Diagnóstico de preparación SaaS](#diagnóstico-de-preparación-saas--revisión-integral-del-24-08-2026)
+- [Qué falta — prioridades explícitas](#qué-falta--prioridades-explícitas)
+- [Iniciar y operar la demo](#iniciar-y-operar-la-demo--flujo-completo)
+- [Escenarios A/B/C/D/E](#escenarios)
+- [Glosario](#glosario)
+
+### Estado funcional en una página
+
+| Capacidad | Estado real | Alcance y motivo |
+|---|---|---|
+| Ingesta de expedientes PDF | **Implementada para demo** | Carga múltiple/incremental, validación previa, deduplicación por SHA-256 dentro del despacho y almacenamiento separado por organización. No incluye antivirus ni sandbox. |
+| Clasificación y extracción | **Híbrida** | Plantillas declaradas por cliente para layouts conocidos; OpenRouter para layouts no reconocidos. El extractor local es deliberadamente un parser de fixtures, no IA general. |
+| OCR | **Implementado vía proveedor** | Un PDF sin capa de texto se envía a OpenRouter/Mistral OCR. Si la clasificación devuelve anotaciones de archivo, la extracción las reutiliza y evita otro OCR. No hay OCR local. |
+| Compuertas de calidad | **Implementadas** | Integridad documental, extracción exitosa, confianza de clasificación y confianza de campos críticos. Fallar una de estas compuertas nunca produce un trabajo `done` ni un Excel descargable. |
+| Cálculos | **Implementados en código determinista** | FOB, flete, seguro, valor aduanero, preferencia, tributos, FX y costo puesto usan `Decimal` y configuración versionada; el modelo no calcula dinero. |
+| Revisión humana | **Implementada parcialmente** | Corrección de campos con motivo, procedencia manual y recálculo. No existe todavía aprobación autenticada por rol ni una UI para aprobar una clasificación de baja confianza. |
+| Excel | **Implementado para la plantilla incluida** | Completa `PRORRATEO MASTER.xlsx`, conserva las dos hojas operativas, añade nueve hojas de evidencia/auditoría y admite hasta 100 facturas. |
+| DIN | **Solo borrador de revisión** | JSON y PDF, una por factura. No es el formulario oficial y no transmite ni presenta información ante Aduanas. |
+| Multiagencia | **Seam de datos demostrable** | Dos organizaciones, perfiles y storage separados. `X-Org-ID` no autentica al usuario; no es aislamiento SaaS suficiente. |
+| Operación | **Local/Docker** | PostgreSQL, API, worker y frontend con preflight y E2E. No hay despliegue productivo, SLO, backup administrado ni recuperación automática de trabajos atascados. |
+
+Los números y artefactos siguen siendo de demostración hasta cerrar los P0 descritos abajo.
+
+## Lo que confirmó la agencia
+
+Casi todas las reglas de negocio de este repositorio provienen de entrevistas con una
+profesional de despachos de la agencia con la que estamos diseñando el producto (cuenta
+Falabella), los días **23 y 24 de agosto de 2026**. Esta sección separa lo que ella confirmó
+de lo que nosotros inferimos. Si algo no está acá, es supuesto nuestro y debe tratarse como
+tal.
+
+### Cálculo y reglas fiscales
+
+| Hecho confirmado | Cita textual | Dónde vive en el código |
+|---|---|---|
+| Valor aduanero = mercancía + flete + seguro | *“valor mercancía + valor de flete y seguro = valor aduanero”* | `app/engine/valuation.py` |
+| El prorrateo se hace por valor de factura | *“siempre se separa por factura, en nuestro caso siempre se cobra por valor de mercancía”* | `allocation.basis: invoice_value` |
+| Quien cobra por peso o volumen es el transportista, no la agencia | *“quien cobra por peso o volumen es quien hace el flete”* | Aclara por qué la base es valor y no peso |
+| Falabella opera casi siempre FOB | *“falabella usualmente siempre es Fob”* | `default_incoterm: FOB` |
+| Si la cláusula es CIF, se deducen flete y seguro para volver a FOB | *“solo se descuenta el flete y seguro y se llega igual al fob”* | `incoterm_rules`, Scenario D |
+| Póliza anual con porcentaje fijo, igual para todos los embarques | *“Es un porcentaje fijo y la póliza la actualizan anualmente”* / *“dura un año, es igual para todos los embarques”* | `insurance.mode: policy_rate` |
+| Tasa vigente de la póliza: **0,0462 %** | *“Se aplica un 0,0462%”* | `clients/falabella.yaml` |
+| Otros clientes toman seguro por embarque según valor de mercancía | *“con otros clientes se tomaba seguro por embarque y dependía del valor de mercancía”* | `insurance.mode: certificate` |
+| Sin póliza se puede usar seguro teórico | *“cuando no hay póliza se puede ocupar un seguro teórico”* | `insurance.mode: theoretical` (tasa pendiente) |
+| El IVA se cobra y el importador lo recupera después | *“el Iva siempre se cobra y posterior el importador... recupera ese iva si le corresponde”* | `recoverable: true`, vista costo |
+| Tipo de cambio: dólar **aduanero**, **del mes** de aceptación de la DIN | *“siempre ocupamos el tipo de dolar aduanero del mes donde se acepta la din”* | `fx.granularity: monthly` |
+| El certificado de origen cubre línea por línea; lo no cubierto paga 6 % | *“si el co cubre línea por línea y cuando algo no está cubierto se le informa al cliente y el paga el 6%”* | Preferencia por línea, EXC-03 |
+| Cobertura parcial ocurre en ~10 % de las operaciones | *“será un 10 % de las operaciones”* | Justifica que Scenario B sea representativo |
+| Con un CO erróneo se paga el 6 % y luego se pide devolución | *“se puede también hacer pagar el 6% y posterior espera nuevo co y solicitar devolución”* | **Backlog, no implementado** |
+
+### Estructura y volumen
+
+| Hecho confirmado | Cita textual | Consecuencia |
+|---|---|---|
+| Una factura = un parcial = una DIN | *“por cada factura se hace una Din”* | El sistema emite N declaraciones, no una |
+| Todas las DIN se presentan el mismo día, según arribo de la nave | *“se presentan todo el mismo dia porque se hace según la fecha que arriba la nave”* | No hay declaraciones diferidas en el tiempo |
+| Al hacer el prorrateo ya se tienen todas las facturas | *“cuando ya hacemos el prorrateo, ya tenemos toda la información de las facturas”* | El divisor del prorrateo es correcto tal como está |
+| El divisor es el valor del B/L | *“se divide el valor del bl en el fondo”* | Origen del control EXC-12 |
+| Hasta **100 facturas por B/L** | *“por un bl pueden haber hasta 100 Facturas, qué es lo máximo que he visto”* | Scenario C, paginación, techo de tokens |
+| Hasta **100 B/L por nave** | *“yo puedo llegar manejar hasta 100 bls por una nave”* | Dimensionamiento y carga de trabajo real |
+| El volumen de información es enorme | *“la cantidad de información es gigante”* | **El argumento de valor, en sus palabras** |
+| Importaciones 60 %, exportaciones 30 %, otros regímenes 10 % | *“importaciones un 60%, exportaciones 30% y 10% los otros regímenes”* | v1 cubre como máximo el 60 % de su trabajo |
+| Otros regímenes usados: admisión temporal, reingreso, tránsito | *“admisión temporal / reingreso / transito”* | Fuera de alcance de v1 |
+| El modo de transporte depende del producto, no hay porcentaje fijo | *“eso en porcentaje es relativo dependiendo el producto”* | No asumir predominio marítimo |
+
+### Cómo son los documentos en la realidad
+
+| Hecho confirmado | Cita textual | Consecuencia |
+|---|---|---|
+| Mayoritariamente PDF por correo | *“llegan en un gran porcentaje pdf por correo”* | La ruta con capa de texto es la principal |
+| A veces llegan fotos | *“pueden enviar fotos”* | Scenario E incluye dos fotos sin capa de texto |
+| Casi siempre en inglés o mezclados | *“casi siempre los documentos vienen en inglés por ser idioma universal y/o mezclados”* | Los prompts no deben asumir español |
+| **Siempre traen timbres la factura y el certificado de origen** | *“con timbres siempre viene la factura y certificado de origen”* | Los timbres tapan datos: riesgo real de extracción |
+| Más de **50 formatos de proveedor** solo para Falabella | *“proveedores variados por lo menos más de 50 en el caso puntual de falabella”* | Una plantilla por proveedor no escala; el fallback a IA es obligatorio |
+| B/L directo de la naviera, electrónico, sin forwarder | *“falabella trabaja con solo navieras, siempre recibimos los bls directos... de forma electrónica”* | Sin ambigüedad MBL/HBL en esta cuenta |
+
+### Lo que seguimos infiriendo, no confirmado
+
+| Supuesto | Base de la inferencia | Riesgo si está mal |
+|---|---|---|
+| La tasa 0,0462 % se aplica sobre el **115 % del CFR** | Es lo que hace su propia planilla `PRORRATEO MASTER`: la tasa anterior se aplicaba sobre `(FOB+flete)×1,15`. Solo cambió la tasa. | Toda prima y todo valor aduanero quedan mal. Es un valor de configuración: se corrige en una línea |
+| Tasa de seguro teórico | Desconocida | El modo `theoretical` está bloqueado hasta obtenerla |
+| Qué otros costos se prorratean | No respondido explícitamente | El costo puesto puede estar incompleto |
+| Tiempo humano por despacho | No preguntado | **No inventar cifras de ahorro sin este dato** |
 
 ## Resumen de handoff para otra LLM
 
 Esta sección es la fuente rápida de contexto. `PROJECT_BRIEF.md` conserva el diseño y las
 decisiones originales; el handoff confirmado con la agencia el 24-08-2026 lo reemplaza donde
-se contradigan. Este README describe lo que existe realmente hoy y qué falta.
-
-### Cambios confirmados con la agencia e implementados el 24-08-2026
-
-- Una factura equivale a un parcial y a una DIN. El cálculo sigue siendo uno por B/L, pero
-  `din.json` devuelve un array y `din.pdf` contiene una declaración por factura.
-- Toda factura se normaliza primero a FOB según `incoterm_rules`; CIF/CFR y similares deben
-  traer el desglose requerido en `included_amounts`. Si falta, la valoración se bloquea con
-  una excepción crítica y nunca estima el componente.
-- El seguro es configuración versionada del cliente. Falabella usa `policy_rate` de
-  `0.000462`; el certificado se conserva para EXC-04 y no alimenta el cálculo. Los modos
-  `certificate` y `theoretical` también están implementados; el segundo permanece bloqueado
-  mientras la tasa teórica esté en `null`.
-- El 115 % de CFR sigue marcado como **inferido y pendiente de confirmación**. No presentarlo
-  como hecho confirmado.
-- El FX chileno es dólar aduanero mensual y se valida contra el mes de aceptación de la DIN.
-  La demo fija una fila mensual manual y ficticia; todavía no integra la fuente productiva.
-- IVA está marcado `recoverable: true`: se paga en la vista declaración, pero se excluye del
-  costo puesto. Excel expone ambas vistas por separado.
-- EXC-12 compara la suma de facturas con `BillOfLading.declared_value_total`; si el B/L no
-  trae ese dato queda `SKIPPED`, y si difiere el resultado es `CRITICAL`.
-- Scenario C ahora contiene 45 PDFs y 40 facturas/DIN; Scenario D prueba equivalencia CIF→FOB;
-  Scenario E aporta 12 plantillas de proveedor, timbres y dos PDFs de foto sin capa de texto.
-
-### Preparación práctica para la reunión implementada el 25-08-2026
-
-- La demo incluye dos agencias sintéticas seleccionables: **IMR Demo** y **Pacífico Demo**.
-  Cada una carga su propia organización, cliente, branding, póliza y defaults desde YAML;
-  cambiar de agencia no requiere modificar código.
-- Los escenarios A/B/C/D están declarados por agencia y solo habilitados para IMR Demo,
-  porque sus documentos pertenecen a Falabella. UI y API impiden aplicar accidentalmente
-  la póliza de Pacífico a esos fixtures; Pacífico sí admite cargas PDF propias.
-- Todas las rutas de negocio exigen contexto de organización (`X-Org-ID`; `org_id` en enlaces
-  descargables), consultan recursos por `org_id` y tienen pruebas que bloquean el acceso
-  cruzado. Es una frontera demostrable de datos, no autenticación productiva.
-- Los documentos y artefactos se separan por organización y las versiones de cliente
-  pertenecen explícitamente a una organización en la base.
-- El intake acepta solo PDFs válidos y aplica límites configurables de cantidad, tamaño por
-  archivo, tamaño del lote y páginas, antes de crear el despacho. Los errores se muestran en
-  la interfaz con un mensaje concreto.
-- GitHub Actions ejecuta formato/lint, 54 pruebas Python, build y auditoría del frontend, y
-  el E2E completo contra API, worker y PostgreSQL en una pila Docker aislada.
-
-### Compuertas de extracción e implementación híbrida — 26-08-2026
-
-- Un documento sin extracción exitosa, un tipo requerido ausente o una clasificación bajo
-  el umbral ya no puede terminar como trabajo exitoso. El trabajo queda `needs_review`, el
-  despacho `review_required` y, si falta integridad documental, no se genera un cálculo nuevo.
-- Los campos financieros y de decisión definidos por cliente tienen un umbral de confianza
-  versionado. Un valor ausente o bajo el umbral permite como máximo un cálculo provisional,
-  exige corrección humana con motivo y bloquea Excel/DIN con HTTP 409.
-- `hybrid` es el backend normal: solo usa el parser local cuando el YAML del cliente declara
-  una plantilla y el contenido coincide; cualquier layout no reconocido cae a OpenRouter.
-  `local` sigue disponible para QA determinista y `openrouter` para forzar IA en todo el lote.
-- En PDFs escaneados, las anotaciones OCR devueltas durante clasificación se reenvían en la
-  conversación de extracción. Así se evita pedir una segunda conversión OCR cuando el
-  proveedor entrega una anotación reutilizable; el hecho queda registrado en telemetría.
-- La UI y la hoja `Trazabilidad` de Excel identifican el resultado como
-  `Extracción local determinista — demo` o `Extracción con IA — OpenRouter`, además de
-  registrar proveedor, parser/modelo y resultado de la compuerta.
+se contradigan. Este README describe lo que existe realmente hoy y qué falta; el orden
+cronológico de los cambios está separado en [`CHANGELOG.md`](CHANGELOG.md).
 
 ### Qué ya está construido
 
@@ -125,14 +188,13 @@ flowchart LR
     UI[React + Vite\npuerto 5173] -->|HTTP /api| API[FastAPI\npuerto 8000]
     API --> DB[(PostgreSQL 16)]
     API --> DOCS[(volumen de documentos)]
-    API --> ART[(volumen de artefactos)]
+    API -->|genera export al descargar| ART[(volumen de artefactos)]
     WORKER[Worker Python] -->|reclama jobs| DB
     WORKER --> DOCS
     WORKER --> LOCAL[Extractor local\nfixtures sintéticos]
     WORKER -. clave configurada .-> OR[OpenRouter]
     WORKER --> ENGINE[Conciliación + prorrateo\n+ tributos deterministas]
     ENGINE --> DB
-    ENGINE --> ART
 ```
 
 El navegador infiere la API como `http(s)://<mismo-host>:8000/api`, salvo que se defina
@@ -174,7 +236,7 @@ trabajos, cálculos, excepciones, eventos de auditoría y artefactos generados.
 | `app/db/` + `migrations/` | Modelos SQLAlchemy, sesión y esquema Alembic inicial. |
 | `jurisdictions/` | Configuración Chile y fixture de generalización Perú. |
 | `agencies/` | Catálogo de organizaciones demo, branding y cliente asociado. |
-| `clients/` | Perfiles de cliente versionados por organización; Falabella y Pacífico sintético. |
+| `clients/` | Perfiles de los importadores que atiende cada agencia (Falabella y Pacífico Imports Demo). No son nuestros clientes: son los clientes de la agencia. |
 | `web/src/` | SPA React: intake, progreso, revisión, PDF, excepciones y cálculos. |
 | `web/tests/` | Playwright end-to-end contra la pila Docker. |
 | `fixtures/` | Escenarios A/B/C/D, pack E, ground truth y respuesta financiera esperada. |
@@ -182,6 +244,7 @@ trabajos, cálculos, excepciones, eventos de auditoría y artefactos generados.
 | `docs/GUIA_DEMO_7_MINUTOS.md` | Guion comercial honesto y límites que deben comunicarse. |
 | `.github/workflows/ci.yml` | CI de backend, frontend, auditorías y Docker E2E. |
 | `PROJECT_BRIEF.md` | Especificación de arquitectura, dominio y alcance original. |
+| `CHANGELOG.md` | Historial fechado de los cambios; el estado vigente se mantiene en este README. |
 
 ### Contrato HTTP implementado
 
@@ -232,6 +295,11 @@ debe copiarse a documentación ni compartirse con una LLM.
 | `DEMO_DIN_ACCEPTANCE_DATE` | Fecha usada para validar que el FX pertenece al mes correcto. |
 | `VITE_API_URL` | Override opcional del frontend; no está en la configuración Python. |
 
+No existe discrepancia vigente de modelos entre este README y `PROJECT_BRIEF.md`: ambos
+declaran `google/gemini-3.5-flash-lite` para clasificación y
+`google/gemini-3.7-flash` para extracción. Si se cambia un modelo, actualice `.env.example`,
+`app/config.py`, el brief y este README en el mismo cambio para preservar reproducibilidad.
+
 ### Diagnóstico de preparación SaaS — revisión integral del 24-08-2026
 
 Este diagnóstico revisó el árbol completo y el cambio financiero/de despliegue, no solo la
@@ -278,7 +346,8 @@ validación legal, aduanera ni productiva.
   descargas, expediente incompleto y Scenario C de 40 facturas.
 - `docker-compose.e2e.yml` fuerza el extractor local solo para QA. Así la prueba de
   infraestructura es determinista, no consume el proveedor y no confunde latencia externa
-  con un defecto del producto. La pila normal conserva `auto`/`openrouter`.
+  con un defecto del producto. La pila normal usa `hybrid`; `openrouter` solo fuerza IA y
+  `auto` queda por compatibilidad.
 - Playwright usa un worker porque la suite comparte una cola y una base. Paralelizar archivos
   de prueba contra un único worker de aplicación introducía esperas artificiales.
 - La CI de GitHub reproduce automáticamente las comprobaciones de backend/frontend y levanta
@@ -444,6 +513,24 @@ Set-Location "C:\ruta\al\repositorio\aduana"
 docker info
 ```
 
+Preparación local de dependencias para desarrollar y ejecutar pruebas fuera de los
+contenedores (una sola vez, PowerShell):
+
+```powershell
+py -3.12 -m venv .venv
+.\.venv\Scripts\python -m pip install --upgrade pip
+.\.venv\Scripts\python -m pip install -e ".[dev]"
+Set-Location .\web
+npm ci
+Set-Location ..
+```
+
+En Linux/macOS cambian únicamente el ejecutable del entorno virtual
+(`.venv/bin/python`). Docker sigue siendo obligatorio para el E2E completo porque esa prueba
+usa PostgreSQL, API y worker reales. No hace falta crear `.env` para la demo determinista;
+si se quiere probar un layout no configurado por `hybrid`, copie `.env.example` a `.env` y
+agregue allí `OPENROUTER_API_KEY` sin versionarlo.
+
 ### 2. Arranque recomendado antes de la reunión
 
 Este comando valida Docker/Compose, construye y levanta PostgreSQL, API, worker y frontend,
@@ -503,6 +590,142 @@ privada del equipo; la interfaz busca la API en el mismo host, puerto 8000.
    provisional JSON/PDF; una revisión pendiente bloquea tanto botones como endpoints.
 9. **Nuevo despacho.** El botón superior limpia la vista de la agencia activa sin borrar la
    trazabilidad persistida. El botón **Ayuda** abre el guion breve dentro de la aplicación.
+
+#### 3.1 Creación, contexto y configuración fijada
+
+- Cada despacho se crea dentro de una organización y fija las versiones vigentes del perfil
+  de cliente, jurisdicción y tipo de cambio. Un cambio posterior del YAML no reescribe el
+  contexto histórico del cálculo.
+- A/B se crean esperando tres facturas, C cuarenta y D una. La carga libre
+  `POST /api/intake/batches` todavía usa **tres facturas esperadas por defecto**; no deduce
+  dinámicamente esa cantidad desde la instrucción. Para un producto general, este número
+  debe venir del intake/perfil o inferirse y confirmarse antes de aplicar la compuerta.
+- El despacho creado por las rutas actuales fija `jurisdiction="CL"`, un FX mensual ficticio
+  y el adaptador DIN chileno. Los YAML prueban configuración del motor, pero no convierten
+  por sí solos a la aplicación en multi-país.
+- Documentos repetidos por hash dentro del mismo despacho no se vuelven a guardar. La
+  deduplicación global entre organizaciones no está implementada deliberadamente.
+
+#### 3.2 Ruta local determinista
+
+1. El worker lee el PDF una vez y obtiene su capa de texto.
+2. Clasifica por firmas del contenido, nunca por el nombre del archivo.
+3. En `hybrid`, busca una plantilla cuyo marcador y tipo estén declarados en la sección
+   `extraction.templates` del perfil de cliente.
+4. Si coincide, `extract_local_text()` reutiliza el texto ya leído y ejecuta el parser
+   `regex-fixture-v1`. No hay llamada de red, tokens ni costo de modelo.
+5. Esta ruta existe para una demo rápida y repetible con los proveedores sintéticos
+   configurados. No debe presentarse como parser universal de facturas comerciales.
+
+`EXTRACTION_BACKEND=local` fuerza esa ruta incluso sin plantilla y es lo que usa el override
+E2E. Si un documento no contiene las firmas/campos esperados, la extracción falla y las
+compuertas lo dejan en revisión; no se inventan valores para hacerlo pasar.
+
+#### 3.3 Ruta híbrida y fallback OpenRouter
+
+1. Con `EXTRACTION_BACKEND=hybrid`, un layout sin plantilla se deriva a OpenRouter. Sin
+   `OPENROUTER_API_KEY`, falla de forma explícita y cerrada.
+2. Un PDF con texto se clasifica usando ese contenido. Un PDF escaneado se envía como archivo
+   y solicita `mistral-ocr` mediante el plugin de parsing de OpenRouter.
+3. La extracción usa el esquema Pydantic del tipo clasificado y solicita JSON estructurado,
+   valores citados, confianza, texto fuente y página.
+4. Para escaneos, si la respuesta de clasificación contiene anotaciones de archivo/OCR, la
+   segunda conversación incluye esas anotaciones y omite una nueva solicitud al plugin. Si
+   el proveedor no las entrega, la extracción vuelve a incluir el PDF y su parser.
+5. Se persisten modelo, proveedor efectivo, parser, tokens, costo, latencia y si el OCR fue
+   reutilizado. La interfaz solo recibe el modo de procesamiento, no tokens, costo ni la
+   respuesta cruda del proveedor.
+
+Una plantilla conocida que falle al extraer también puede caer a IA si el backend es
+`hybrid` y existe una clave. `openrouter` fuerza IA aun para plantillas conocidas. `auto`
+solo decide por presencia de clave y se mantiene para compatibilidad; no es la estrategia
+recomendada.
+
+#### 3.4 Compuertas, estados y qué significa “completo”
+
+Las compuertas se evalúan después de materializar las correcciones humanas y antes del motor
+financiero. Los umbrales y campos críticos viven en el perfil versionado del cliente.
+
+| Condición | Cálculo | Estado del job/despacho | Exportación |
+|---|---|---|---|
+| Todos los tipos/cantidades requeridos, extracciones exitosas y confianza suficiente | Sí | `done` / `review` | Permitida |
+| Expediente completo, pero clasificación o campo crítico bajo el umbral | Sí, claramente provisional | `needs_review` / `review_required` | Bloqueada con HTTP 409 |
+| Tipo requerido ausente o extracción fallida | No se crea un cálculo nuevo; la API tampoco expone uno anterior como vigente | `needs_review` / `review_required` | Bloqueada con HTTP 409 |
+| Extracción aprobada pero uno o más de los doce controles aduaneros dan `FAIL` | Sí | `done` / `review`, con excepciones visibles | Permitida como artefacto provisional |
+
+La última fila es intencional: las compuertas prueban que los datos necesarios son utilizables;
+los controles de negocio detectan contradicciones que el agente debe resolver. Scenario B,
+por ejemplo, genera el Excel con siete excepciones para que puedan analizarse. Aceptar riesgo
+no transforma un `FAIL` en `PASS` ni convierte el documento en oficial.
+
+Los campos financieros críticos configurados incluyen totales, moneda/incoterm, líneas,
+flete, seguro, pesos y HS según tipo documental. Una corrección desde la UI exige motivo,
+se anexa sin borrar la extracción original, marca el campo como `provenance="manual"` y
+`confidence="1"`, y encola un nuevo cálculo. Una clasificación de confianza insuficiente
+todavía no tiene botón de aprobación manual ni un flujo de reemplazo/eliminación completo:
+para recuperarla hoy se necesita crear otro despacho o intervenir administrativamente. Ese
+flujo debe implementarse antes de producción; reejecutar el mismo job reutiliza una
+extracción exitosa y no constituye una aprobación humana.
+
+#### 3.5 Correcciones, aceptación de riesgo y exportación
+
+- **Corrección:** cambia el valor efectivo de un campo citado, exige y registra un motivo,
+  conserva el valor extraído y vuelve a evaluar compuertas/cálculo. Todavía no puede asociar
+  la acción a una identidad verificada porque no existe login.
+- **Aceptación de riesgo:** guarda justificación sobre una excepción aduanera. Es independiente
+  de la confianza de extracción y no puede saltarse una compuerta bloqueada.
+- **Excel/DIN:** la API los genera bajo demanda únicamente si `review.blocked=false`, guarda
+  cada artefacto por hash dentro del namespace de la organización y registra su generación.
+  El Excel es la salida operativa principal; DIN JSON/PDF son borradores auxiliares.
+- **Reejecución:** documentos con una extracción exitosa se reutilizan; los fallidos pueden
+  intentarse otra vez. No existe todavía una política productiva de reintentos de jobs,
+  dead-letter, cancelación o recuperación automática de un job quedado en `running`.
+
+#### 3.6 Contrato del Excel: qué recibe el agente de aduanas
+
+El endpoint `GET /api/dispatches/{id}/exports/reconciliation.xlsx` abre la plantilla
+operativa incluida, la completa y devuelve una copia; nunca modifica el archivo maestro del
+repositorio. La exportación exige una compuerta de extracción aprobada. Una excepción de
+negocio puede seguir figurando como `FAIL` —Scenario B es el ejemplo— porque el propósito del
+libro es que el agente la revise, no ocultarla.
+
+| Hoja | Origen y finalidad |
+|---|---|
+| `Prorrateo General` | Hoja operativa original. Recibe hasta 100 facturas, FOB normalizado, participación, flete, prima de póliza, valor aduanero, derechos, IVA, referencia y despacho. |
+| `Prorrateo resumen` | Segunda hoja original. Conserva sus fórmulas y referencias al prorrateo general para la vista resumida esperada por la agencia. |
+| `Resumen` | Estado del despacho y de la compuerta, modo de extracción, totales de declaración/costo, FX, plantilla y hashes de configuración/cálculo. |
+| `Documentos` | Inventario, SHA-256, páginas, presencia de texto, OCR, confianza de clasificación y parser/proveedor/modelo de la extracción. |
+| `Extracciones` | Cada campo aplanado con archivo, ruta, valor, procedencia, página, texto fuente y confianza. Incluye correcciones humanas ya materializadas. |
+| `Validaciones` | Los doce controles, severidad, `PASS`/`FAIL`/`SKIPPED`, detalle, acción sugerida e impacto financiero cuando existe. |
+| `Prorrateo` | Líneas calculadas: FOB, participación, asignación de flete/seguro, ajuste residual, tasa/razón y costo puesto. |
+| `Tributos` | Cada gravamen por factura con base, expresión configurada, tasa, monto, moneda y si es recuperable. |
+| `Vista declaración` | Valor aduanero y tributos efectivamente pagados por factura. |
+| `Vista costo` | Costo puesto por factura; separa tributos capitalizados del IVA recuperable excluido. |
+| `Trazabilidad` | Hash y versión del cálculo, hashes de cliente/jurisdicción/plantilla, eventos de auditoría, resultado de compuerta y etiqueta `Extracción local determinista — demo` o `Extracción con IA — OpenRouter`. |
+
+La exactitud demostrada es contra `ANSWER_KEY.json` y los fixtures A–D. No existe todavía una
+comparación firmada contra un Excel real completado por la agencia, ni garantía de que otras
+versiones de su plantilla con filas, fórmulas, macros o nombres distintos sean compatibles.
+La plantilla actual es por tanto un adaptador versionado, no un formato universal.
+
+#### 3.7 Persistencia, reproducibilidad y datos sensibles
+
+- PostgreSQL conserva organización, versiones de cliente/jurisdicción, FX, despacho,
+  documentos, cada intento de clasificación/extracción, correcciones, jobs, cálculos,
+  excepciones, auditoría y artefactos generados. Los PDFs y exports se guardan en storage
+  local direccionado por hash y separado por organización.
+- Las extracciones y cálculos son históricos: una corrección se anexa y un recálculo crea
+  otra ejecución con `input_hash`; no reescribe silenciosamente la respuesta original. Los
+  hashes de documentos, configuración, plantilla y cálculo permiten saber qué produjo un
+  Excel, aunque todavía no equivalen a una firma digital ni a un sello de tiempo externo.
+- Cuando se usa OpenRouter, la respuesta cruda, proveedor/modelo, tokens, costo y latencia se
+  persisten en `extraction_run`. Esto facilita auditoría y diagnóstico, pero también puede
+  conservar texto comercial sensible. Antes de SaaS se requieren política de retención,
+  cifrado administrado, redacción de logs/respuestas, borrado por tenant y acuerdos claros
+  con el proveedor.
+- El worker reclama jobs desde la base, pero no hay scheduler de recuperación, bloqueo con
+  lease/heartbeat, DLQ ni reconciliador de estados. Que el registro sobreviva a un reinicio
+  no garantiza que un job interrumpido continúe solo.
 
 ### 4. Diagnóstico durante la reunión
 
@@ -654,7 +877,6 @@ extracción, el enrutamiento híbrido y la reutilización de OCR:
 | `scripts/preflight_demo.ps1` | **PASS** en Windows PowerShell 5.1: build/start con `--wait`, cuatro servicios sanos, API y dos agencias verificadas. |
 | Reset multiagencia real | **PASS** — eliminó seis despachos de dos organizaciones y sus namespaces en una pila QA aislada, preservando configuración. |
 
-El plugin Browser no estaba disponible; el QA visual usó el Playwright instalado en `web/`.
 Se inspeccionaron las capturas desktop/móvil/completo-incompleto y las páginas 1/40 de la
 DIN. Los artefactos temporales no se agregaron al repositorio. El test real contra Scenario C
 permanece en `web/tests/workflow.spec.ts`; el test aislado de factura multilínea/paginación
@@ -678,27 +900,29 @@ npm audit --audit-level=high
 El E2E requiere primero la pila aislada mostrada en la sección de ejecución. El flujo de
 arranque, preflight, diagnóstico, reset multiagencia y apagado está documentado arriba.
 
-## Implementación
+## El proceso completo, más allá de lo que automatizamos
 
-- FastAPI, Pydantic v2, SQLAlchemy 2, Alembic y PostgreSQL 16, con un worker separado.
-- Almacenamiento local direccionado por SHA-256, ejecuciones de extracción y cálculo
-  inmutables, correcciones anexadas y eventos de auditoría.
-- React 19, TypeScript, Vite y `react-pdf`, con carga de carpeta/archivos, progreso en vivo,
-  revisión en tres paneles, checklist esperado-versus-recibido, citas, correcciones,
-  controles pendientes por documentos faltantes y aceptación escrita de riesgo de demo.
-- Motor con `Decimal`, normalización a FOB, asignación residual determinista, expresiones de
-  tributos con AST restringido, preferencia por línea, FX mensual y doce reglas configurables.
-- Exportación del prorrateo basada en `PRORRATEO MASTER.xlsx`: conserva sus dos hojas
-  operativas hasta 100 facturas, calcula la prima desde el perfil de cliente, reconcilia el
-  control de cobertura, agrega tasas configuradas por línea y
-  añade Resumen, Documentos, Extracciones, Validaciones, Prorrateo, Tributos, Vista
-  declaración, Vista costo y Trazabilidad. La copia registra SHA-256 de plantilla,
-  jurisdicción, cliente y cálculo reproducible, y admite hasta 100 facturas.
-- Una DIN provisional por factura en JSON y PDF con una advertencia que impide confundirla con una
-  declaración lista para presentar. La interfaz general usa una indicación más discreta de
-  entorno de demostración y el Excel señala que la validación aduanera está pendiente.
+Una importación chilena involucra alrededor de **44 tipos documentales** repartidos en seis
+fases y seis actores, según el mapa de proceso preparado para este proyecto. Este sistema
+lee 6 de esos tipos y produce 3 artefactos: opera en las fases de tránsito y despacho
+aduanero, que es donde la agencia transcribe y cruza documentos.
 
-Four dispatches, all synthetic Chile imports from China for the same importer:
+No automatizamos la importación completa. Automatizamos la parte donde se pierde el tiempo y
+donde nacen los errores.
+
+La documentación entregada menciona mapas del proceso, cardinalidad documental, escenarios
+y un glosario de 67 términos para `docs/mapas/`, pero esos SVG **todavía no están
+versionados en este repositorio**. Deben agregarse antes de enlazarlos o compartirlos como
+parte del handoff técnico.
+
+Frase para explicarlo en una reunión:
+
+> “No automatizamos la importación completa: automatizamos la fase donde la agencia
+> transcribe y cruza documentos, que es donde está el error humano y el tiempo perdido.”
+
+## Escenarios
+
+Cuatro despachos sintéticos de importación Chile–China para el mismo importador:
 
 | | Scenario A | Scenario B | Scenario C | Scenario D |
 |---|---|---|---|---|
@@ -708,9 +932,9 @@ Four dispatches, all synthetic Chile imports from China for the same importer:
 | Outcome | 3 DIN, 12 checks pass | 3 critical + 4 warnings | 40 DIN, 12 checks pass | CIF→FOB, 12 checks pass |
 | Purpose | Happy path | Detection/impact | Volume/pagination | Incoterm normalization |
 
-`scenario_E_document_realism/` no es un despacho coherente: es un pack separado de 12
-formatos de proveedor, dos certificados de origen y dos fotos sin capa de texto para QA de
-documentos/OCR.
+`scenario_E_document_realism/` no es un despacho coherente: es un pack separado de **14
+PDFs** —12 facturas con layouts/proveedores distintos y dos certificados de origen con
+sello— para QA documental. Dos de las doce facturas son fotos sin capa de texto.
 
 El escenario C sí es un despacho coherente y sus 45 PDFs usan maquetación de documentos de
 comercio exterior: factura tabulada con datos de comprador y embarque, packing list de dos
@@ -718,11 +942,12 @@ páginas, B/L con casillas de expedidor/consignatario/ruta, certificado de segur
 cobertura y certificado de origen Form F con tabla y sello sintético. Se inspiran en formatos
 habituales, pero no copian marcas ni pretenden sustituir documentos oficiales.
 
-Every document carries a footer marking it as synthetic. Nothing here is a real shipment.
+Cada documento lleva una advertencia que lo identifica como sintético. Ninguno corresponde a
+un embarque real.
 
 ---
 
-## Acronyms used throughout
+## Glosario
 
 - **B/L** — Bill of Lading. The carrier's transport document; receipt, contract of carriage and document of title.
 - **FOB** — Free On Board. Goods value at the port of origin, seller's cost up to the ship's rail.
@@ -752,7 +977,7 @@ PDFs in total and 44 expected shipment documents.
 | 01 | Bill of Lading | Freight amount, gross weight, package count, consignee, invoice references. The freight figure is the input to the whole prorrateo. | Carrier |
 | 02 | Commercial invoices (×3) | FOB value, HS code, quantities, unit prices. One B/L, several invoices — this is exactly why a prorrateo exists. | Supplier |
 | 03 | Packing List | Weights and package counts per invoice. The cross-check against the B/L. | Supplier |
-| 04 | Certificado de Seguro | Sum insured and premium. The premium is a CIF component. | Insurer |
+| 04 | Certificado de Seguro | Suma asegurada y prima impresa. En el modo actual `policy_rate`, la suma sirve al control de cobertura y la prima impresa es evidencia; la prima calculada desde el perfil del cliente es la que entra al valor aduanero. | Insurer |
 | 05 | Certificate of Origin | Determines whether duty is 0% or 6%. The single largest money lever in the file. | Chinese certifying authority (CCPIT) |
 
 ---
@@ -762,14 +987,14 @@ PDFs in total and 44 expected shipment documents.
 1. **Intake** — drop the whole folder in. No sorting, no naming convention required.
 2. **Classification** — identify what each file is. The demo folders are deliberately named so you can *verify* the classifier, not feed it.
 3. **Extraction** — structured fields out of each document type, each field carrying a source reference (file + page) so a human can click back to the original.
-4. **Reconciliation** — the eleven cross-checks listed in `ANSWER_KEY.json`. This is the part a spreadsheet cannot do.
+4. **Reconciliation** — the twelve cross-checks listed in `ANSWER_KEY.json`. This is the part a spreadsheet cannot do.
 5. **Duty determination** — per line, driven by the CoO coverage, not a single global cell.
 6. **Prorrateo** — freight and insurance allocated by invoice value; CIF, duty and IVA built per line.
 7. **Output** — DIN draft, the cash-to-wire figure, and an exception queue with a suggested action per item.
 
 Stages 4–7 should be **deterministic code**, not the model. The model reads documents;
 arithmetic and rule-checking are ordinary functions. That is what makes the output
-auditable and what keeps the cost per dispatch in cents.
+auditable and what keeps model usage measurable and separate from the financial result.
 
 ---
 
@@ -778,20 +1003,20 @@ auditable and what keeps the cost per dispatch in cents.
 Ningbo Homeware → Falabella Retail S.A., 1×40'HC Shanghai→Valparaíso, 962 cartons, 14,820 kg.
 Three invoices totalling USD 55,000 FOB, freight USD 3,200.
 
-All eleven checks pass. CoO covers all three HS codes, so the China–Chile FTA gives 0% duty.
+All twelve checks pass. CoO covers all three HS codes, so the China–Chile FTA gives 0% duty.
 
 | | USD |
 |---|---|
 | FOB | 55,000.00 |
 | Freight | 3,200.00 |
-| Insurance premium | 38.66 |
-| **CIF** | **58,238.66** |
+| Policy-rate insurance allocated to lines | 30.93 |
+| **Customs value** | **58,230.93** |
 | Duty (FTA preference, 0%) | 0.00 |
-| IVA 19% | 11,065.35 |
-| **To Tesorería** | **11,065.35** (~CLP 10,660,911) |
+| IVA 19% | 11,063.88 |
+| **To Tesorería** | **11,063.88** (CLP 10,659,495 at the fictitious demo FX) |
 
-**Talking point:** without the origin preference this shipment would owe USD 3,494.33 duty
-and USD 11,729.26 IVA — **USD 4,158.24 more**. On one container. The current spreadsheet
+**Talking point:** without the origin preference this shipment would owe USD 3,493.86 duty
+and USD 11,727.71 IVA — **USD 4,157.69 more**. On one container. The current spreadsheet
 hardcodes a single 6% duty rate in one cell for the whole B/L, so it cannot express this.
 
 ---
@@ -806,10 +1031,24 @@ freight USD 4,150. Seven planted defects, none of them visible from any single d
 | EXC-01 | CRITICAL | Packing list says 9,847 kg; B/L says 9,208 kg. 639 kg / 6.9% apart. |
 | EXC-02 | CRITICAL | B/L cites invoice BN26010515. No such invoice — the set has BN26010514. |
 | EXC-03 | CRITICAL | CoO covers HS 9405.20 and 8518.22 only. HS 8544.42 (USD 9,120) gets no preference. |
-| EXC-04 | WARNING | Insured for USD 68,000; 115% of CFR requires USD 78,798. Shortfall USD 10,798. |
+| EXC-04 | WARNING | Asegurado por USD 68.000; con la cobertura configurada del 115 % del CFR (base inferida, pendiente de confirmación) se requerirían USD 78.798. Faltante: USD 10.798. |
 | EXC-05 | WARNING | Invoice BN26010513: 2,600 × USD 12.50 = 32,500, but the invoice totals 33,800. |
 | EXC-06 | WARNING | B/L and CoO say *Falabella Retail S.A.*; the invoices say *Falabella Retail SpA*. |
 | EXC-07 | WARNING | CoO issued 2026-07-28, vessel sailed 2026-07-14, with no retrospective annotation. |
+
+El resultado base conserva el defecto en vez de “arreglar” el documento: usa preferencia
+solo en las líneas cubiertas y deja las siete excepciones para decisión humana.
+
+| Current Scenario B result | Value |
+|---|---:|
+| FOB | USD 64,370.00 |
+| Freight / policy-rate insurance | USD 4,150.00 / USD 36.41 |
+| Customs value | USD 68,556.41 |
+| Duty / recoverable IVA | USD 582.79 / USD 13,136.46 |
+| Payable taxes | USD 13,719.25 |
+| Landed cost before recoverable IVA | USD 69,139.20 |
+| Demo settlement | CLP 13,217,811 |
+| Documents / DIN / failed controls | 8 / 3 / 7 of 12 |
 
 **The money, three ways:**
 
@@ -819,8 +1058,9 @@ freight USD 4,150. Seven planted defects, none of them visible from any single d
 | Blanket 0% because "there's a CoO" | 0.00 | 13,025.72 | 13,025.72 |
 | Preference rejected outright (EXC-07 risk) | 4,113.38 | 13,807.26 | 17,920.64 |
 
-Under-declaring by USD 693.52 is a fine plus interest. The EXC-07 exposure is USD 4,201.39
-of unbudgeted cash at the port. Both are invisible to anyone reading one document at a time.
+The modeled under-declaration from EXC-03 is USD 693.52. The EXC-07 comparison changes the
+modeled payment by USD 4,201.39 if preference is rejected. Any legal consequence, fine or
+interest requires expert validation and is deliberately not asserted by this demo.
 
 **Talking point:** EXC-01, EXC-02 and EXC-03 each require *two* documents to detect.
 No amount of careful reading of the invoice alone finds them. That is the difference between
@@ -837,6 +1077,17 @@ pass. The packet uses realistic, form-based layouts while retaining a text layer
 synthetic-document footer so extraction remains deterministic and nobody can mistake it for a
 real shipment. The current 45-PDF fixture has not yet had a full OpenRouter timing run; do not reuse the
 150,8-second result from the earlier 29-PDF version as though it measured this set.
+
+| Current Scenario C result | Value |
+|---|---:|
+| FOB | USD 491,220.00 |
+| Freight | USD 9,850.00 |
+| Policy-rate insurance | USD 266.22 |
+| Customs value / landed cost before recoverable IVA | USD 501,336.22 |
+| Duty | USD 0.00 |
+| Recoverable IVA / payable taxes | USD 95,253.87 |
+| Demo settlement | CLP 91,772,341 |
+| Documents / DIN / controls | 45 / 40 / 12 PASS |
 
 Recommended meeting flow:
 
@@ -855,6 +1106,51 @@ Regenerate the volume fixture deterministically with:
 .\.venv\Scripts\python scripts\generate_volume_fixture.py
 ```
 
+## Scenario D — CIF normalization
+
+Scenario D proves that the engine does not treat an invoice total labelled CIF as FOB. It
+contains six PDFs and one invoice/DIN. The invoice total is USD 13,215.00 CIF and explicitly
+includes USD 1,200.00 freight and USD 15.00 invoice insurance. Normalization deducts both to
+obtain USD 12,000.00 FOB, then rebuilds the customs value using the configured policy-rate
+insurance rather than silently reusing the supplier's included insurance.
+
+| Current Scenario D result | Value |
+|---|---:|
+| Invoice total (CIF) | USD 13,215.00 |
+| Explicit included freight / insurance | USD 1,200.00 / USD 15.00 |
+| Normalized FOB | USD 12,000.00 |
+| Re-added freight / policy-rate insurance | USD 1,200.00 / USD 7.01 |
+| Customs value / landed cost | USD 13,207.01 |
+| Recoverable IVA / payable taxes | USD 2,509.33 |
+| Demo settlement | CLP 2,417,614 |
+| Documents / DIN / controls | 6 / 1 / 12 PASS |
+
+If CIF/CFR or another configured Incoterm omits the required `included_amounts`, valuation
+fails with a critical validation result. The system never guesses the missing split.
+
+## Scenario E — document and OCR realism pack
+
+Scenario E is **not** exposed by `/api/demo/load` and is not one financially coherent
+dispatch. It contains 14 PDFs for extractor evaluation:
+
+- 12 commercial invoices with distinct synthetic suppliers/layouts, mixed English/Spanish,
+  tables, logos and stamp overlays;
+- two stamped certificates of origin;
+- two of the twelve invoices rendered as image-only phone photos with no text layer.
+
+The configured Falabella templates do not whitelist these synthetic suppliers. Therefore,
+under `hybrid`, they deliberately exercise the unseen-layout OpenRouter route; without a key
+they fail closed. Under forced `local`, they are not an accuracy demonstration. The current
+tests verify their structure, text-layer/OCR routing properties and uniqueness—not field-level
+precision of a model on these layouts. A real evaluation still needs anonymized documents,
+expert-labelled truth, per-field metrics and agreed confidence thresholds.
+
+Regenerate this pack deterministically with:
+
+```powershell
+.\.venv\Scripts\python scripts\generate_realism_fixtures.py
+```
+
 ---
 
 ## Jurisdiction configs
@@ -863,14 +1159,18 @@ Regenerate the volume fixture deterministically with:
 prove the engine generalises — four levies with a cascading base, produced by the same code
 with no changes. It is a test fixture, never a supported product.
 
-All figures in the answer key are computed through the config-driven levy engine. Nothing
-about Chile is hardcoded. The CLP figures use a clearly fictional demo FX rate of
-963.45 CLP/USD; production reads the configured source on the configured date rule.
+All figures in the answer key are computed through the config-driven levy engine. The
+formulas, levy order and rates come from YAML, but the application still fixes Chile in the
+dispatch route, uses a Chilean DIN adapter and contains Chile-specific UI/copy. The CLP
+figures use a clearly fictional demo FX rate of 963.45 CLP/USD. Productive FX ingestion is
+not implemented; the repository only validates that the pinned monthly rate belongs to the
+DIN acceptance month.
 
 ## `ANSWER_KEY.json`
 
-The ground truth: every expected field, the full per-line prorrateo, and the expected verdict
-on all eleven checks for both dispatches. Use it two ways:
+The generated ground truth for A/B/C/D: expected totals, full per-line prorrateo, financial
+views and the expected verdict on all twelve controls. Field-level extraction truth lives
+separately in `EXTRACTION_GROUND_TRUTH.json`. Use the answer key two ways:
 
 - **During build** — as the test fixture. The prototype should reproduce these numbers exactly.
 - **In the meeting** — as the honest scorecard. Run it live, then show what it was supposed to
