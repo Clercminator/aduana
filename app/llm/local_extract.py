@@ -262,42 +262,75 @@ def _insurance(text: str) -> InsuranceCertificate:
 
 
 def _origin(text: str) -> CertificateOfOrigin:
-    number = _values(r"CERTIFICATE NO\.\s+.+? ([A-Z]\d{2}CL\d+)", text, re.S)[0]
-    exporter_line = next(
-        line
-        for line in text.splitlines()
-        if number in line and "CERTIFICATE NO" not in line.upper()
-    )
-    exporter = exporter_line.split(number, 1)[0].strip()
-    importer = _values(r"\n([^\n]+?) Departure date:", text)[0].strip()
-    departure = _values(r"Departure date: (\d{4}-\d{2}-\d{2})", text)[0]
-    issue_dates = re.findall(r"Place and date:.*?(\d{4}-\d{2}-\d{2})", text)
+    front = text.split("Overleaf Instruction", 1)[0]
+    number = _values(r"Certificate No\.:\s*([A-Z0-9-]+)", front, re.I)[0]
+
+    def following_value(label: str) -> str:
+        lines = [line.strip() for line in front.splitlines() if line.strip()]
+        start = next(
+            index for index, line in enumerate(lines) if label.casefold() in line.casefold()
+        )
+        skipped = (
+            "certificate no.",
+            "certificate of origin",
+            "form for china-chile",
+            "issued in:",
+            "(see instruction",
+            "for official use",
+            "synthetic fixture",
+        )
+        return next(line for line in lines[start + 1 :] if not line.casefold().startswith(skipped))
+
+    exporter = following_value("1. Exporter's name")
+    consignee = following_value("3. Consignee's name")
+    issuing_authority = _values(r"Authorised body:\s*([^\n]+)", front, re.I)[0].strip()
+    departure = _values(r"Departure Date:\s*(\d{4}-\d{2}-\d{2})", front, re.I)[0]
+    issue_dates = re.findall(r"\n[A-Z][A-Z ]+,\s*(\d{4}-\d{2}-\d{2})", front)
+    if not issue_dates:
+        issue_dates = re.findall(r"Place and date:.*?(\d{4}-\d{2}-\d{2})", front)
     issue = issue_dates[-1]
-    container_matches = re.findall(r"([A-Z]{4}\d{7})", text)
+    issue_source = next(
+        (
+            line.strip()
+            for line in front.splitlines()
+            if line.strip().endswith(issue) and "," in line
+        ),
+        _line(front, issue),
+    )
+    container_matches = re.findall(r"([A-Z]{4}\d{7})", front)
     container = container_matches[0] if container_matches else None
     items: list[OriginItem] = []
-    for row in text.splitlines():
-        match = re.match(
-            r"\d+ [A-Z0-9]+ \d+ CARTONS (\d{4}\.\d{2}) [A-Z]+ ([\d,.]+) (BN\d{8})", row
-        )
-        if match:
-            hs, gross, invoice = match.groups()
-            items.append(
-                OriginItem(
-                    hs_code=_c(hs, row),
-                    description=_c(_line(text, "MADE IN CHINA"), _line(text, "MADE IN CHINA")),
-                    gross_weight_kg=_c(_decimal(gross), row),
-                    invoice_number=_c(invoice, row),
-                )
+    row_pattern = re.compile(
+        r"(?m)^\s*\d{1,2}\s+[A-Z0-9/-]+\s+(.+?)\s+(\d{4}\.\d{2})\s+"
+        r"(WO|WP|RVC|PSR)\s+([\d,.]+)\s+([A-Z]+)\s+(BN\d{8})\s*/\s*"
+        r"(\d{4}-\d{2}-\d{2})"
+    )
+    for match in row_pattern.finditer(front):
+        goods, hs, criterion, amount, unit, invoice, invoice_date = match.groups()
+        description = goods.split(";", 1)[-1].strip().rstrip(" *")
+        source = " ".join(match.group(0).split())
+        items.append(
+            OriginItem(
+                hs_code=_c(hs, source),
+                description=_c(description, source),
+                origin_criterion=_c(criterion, source),
+                net_weight_or_quantity=_c(_decimal(amount), source),
+                weight_or_quantity_unit=_c(unit, source),
+                invoice_number=_c(invoice, source),
+                invoice_date=_c(date.fromisoformat(invoice_date), source),
             )
+        )
     return CertificateOfOrigin(
         certificate_number=_c(number, _line(text, number)),
-        issue_date=_c(date.fromisoformat(issue), _line(text, issue)),
+        issue_date=_c(date.fromisoformat(issue), issue_source),
         exporter_name=_c(exporter, _line(text, exporter)),
-        importer_name=_c(importer, _line(text, importer)),
-        agreement_name=_c("TLC Chile–China", _line(text, "FREE TRADE AGREEMENT")),
-        departure_date=_c(date.fromisoformat(departure), _line(text, "Departure date")),
-        is_retrospective=_c("ISSUED RETROSPECTIVELY" in text.upper(), _line(text, "5. REMARKS")),
+        issuing_authority=_c(issuing_authority, _line(front, "Authorised body:")),
+        consignee_name=_c(consignee, _line(text, consignee)),
+        agreement_name=_c(
+            "CHINA-CHILE FREE TRADE AGREEMENT", _line(text, "Form for China-Chile FTA")
+        ),
+        departure_date=_c(date.fromisoformat(departure), _line(text, "Departure Date")),
+        is_retrospective=_c("ISSUED RETROACTIVELY" in front.upper(), _line(front, "5. Remarks")),
         container_number=_c(container, _line(text, container))
         if container
         else Cited(value=None, confidence=Decimal("0")),

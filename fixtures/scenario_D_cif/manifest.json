@@ -5,5 +5,7 @@
   "included_freight_usd": "1200.00",
   "included_insurance_usd": "15.00",
   "expected_normalized_fob_usd": "12000.00",
-  "expected_policy_premium_usd": "7.01"
+  "expected_policy_premium_usd": "7.01",
+  "origin_certificate_format": "China-Chile FTA reference form, front plus overleaf",
+  "origin_certificate_page_size_mm": "216x330"
 }

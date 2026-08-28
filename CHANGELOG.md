@@ -3,6 +3,30 @@
 Historial de cambios funcionales del prototipo. El estado vigente, los flujos y las
 limitaciones se documentan en `README.md`.
 
+## 28-08-2026 — DIN con estructura de formulario chileno
+
+- El PDF DIN dejó de ser un resumen apaisado y ahora reproduce en formato oficio vertical la
+  estructura visual de la hoja principal entregada como referencia: identificación; origen,
+  transporte y almacenaje; antecedentes financieros; mercancías; cuentas y valores;
+  autorización, Tesorerías y firmas.
+- Cada factura sigue siendo una DIN. Si una factura contiene más de un ítem, el primero se
+  muestra en la hoja principal y los restantes se emiten en hojas de insumos paginadas.
+- El formulario cruza los datos documentales disponibles con el cálculo determinista: partes,
+  B/L, puertos, nave/viaje, contenedor, bultos/peso, Incoterm, certificado de origen, FOB,
+  flete, seguro, CIF, ad valorem, IVA, tipo de cambio y total CLP.
+- Los identificadores oficiales, RUT, códigos de aduana/despachador, manifiesto, almacén,
+  inspección, pago diferido y firmas no se inventan: quedan vacíos o `PENDIENTE`. El PDF sigue
+  marcado como demo y no acredita presentación ante Aduanas.
+- Los certificados de origen sintéticos de los escenarios A-E ahora comparten un renderer
+  basado en el formulario China-Chile FTA de febrero de 2019 entregado por la agencia: oficio
+  216 x 330 mm, casillas 1-14, tabla de hasta 50 ítems e instrucciones al reverso.
+- La extracción del CO usa la semántica del formulario: consignatario; criterio `WO`, `WP`,
+  `RVC` o `PSR`; peso neto o cantidad y unidad; número y fecha de factura. El parser limita la
+  anotación retrospectiva al anverso para que el texto instructivo del reverso no genere falsos
+  positivos.
+- Los CO continúan siendo inequívocamente sintéticos: aviso de uso oficial vacío, timbre de
+  prueba y pie rojo que prohíbe su uso aduanero o comercial.
+
 ## 26-08-2026 — Compuertas de extracción e implementación híbrida
 
 - Un documento sin extracción exitosa, un tipo requerido ausente o una clasificación bajo

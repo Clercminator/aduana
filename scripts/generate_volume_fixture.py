@@ -6,6 +6,11 @@ import json
 from decimal import ROUND_HALF_UP, Decimal
 from pathlib import Path
 
+from origin_certificate_fixture import (
+    OriginCertificateData,
+    OriginItemData,
+    render_origin_certificate,
+)
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4, landscape
 from reportlab.pdfgen import canvas
@@ -537,138 +542,50 @@ def write_insurance(
     pdf.save()
 
 
-def _origin_page_header(pdf: canvas.Canvas, width: float, height: float, page_no: int) -> float:
-    pdf.setFillColor(colors.HexColor("#F6F0D8"))
-    pdf.rect(22, 22, width - 44, height - 44, fill=1, stroke=0)
-    pdf.setStrokeColor(colors.HexColor("#7A6B39"))
-    pdf.setLineWidth(1)
-    pdf.rect(22, 22, width - 44, height - 44, fill=0, stroke=1)
-    draw_text(pdf, 34, height - 45, "CERTIFICATE OF ORIGIN", size=15, bold=True, color=INK)
-    draw_right(pdf, width - 34, height - 45, f"PAGE {page_no} / 2", size=7, color=MUTED)
-    draw_text(pdf, 34, height - 63, "Form F - CHINA-CHILE FREE TRADE AGREEMENT", size=8, bold=True)
-    draw_text(pdf, 34, height - 78, "Issued in THE PEOPLE'S REPUBLIC OF CHINA", size=7.5)
-    return height - 104
-
-
-def draw_origin_stamp(pdf: canvas.Canvas, x: float, y: float) -> None:
-    pdf.saveState()
-    pdf.translate(x, y)
-    pdf.rotate(-8)
-    pdf.setStrokeColor(RED)
-    pdf.setFillColor(RED)
-    pdf.setLineWidth(1.5)
-    pdf.circle(0, 0, 38, stroke=1, fill=0)
-    pdf.circle(0, 0, 31, stroke=1, fill=0)
-    pdf.setFont("Helvetica-Bold", 7)
-    pdf.drawCentredString(0, 4, "NINGBO CUSTOMS")
-    pdf.setFont("Helvetica", 6)
-    pdf.drawCentredString(0, -8, "SYNTHETIC ORIGIN")
-    pdf.restoreState()
-
-
 def write_origin(
     path: Path,
     invoices: list[dict],
     container: str,
 ) -> None:
-    pdf = canvas.Canvas(str(path), pagesize=A4, pageCompression=1)
-    width, height = A4
-    certificate = "C26CL0124001"
-    for page_no, page_items in enumerate((invoices[:20], invoices[20:]), start=1):
-        y = _origin_page_header(pdf, width, height, page_no)
-        if page_no == 1:
-            box(pdf, 34, y - 84, width - 68, 96, fill=colors.HexColor("#FFFDF2"))
-            draw_text(
-                pdf,
-                44,
-                y - 5,
-                "1. EXPORTER'S NAME, ADDRESS AND COUNTRY CERTIFICATE NO.",
-                size=6.8,
-                bold=True,
-            )
-            draw_text(
-                pdf,
-                44,
-                y - 24,
-                f"NINGBO HOMEWARE MANUFACTURING CO., LTD. {certificate}",
-                size=8,
-                bold=True,
-            )
-            draw_text(pdf, 44, y - 42, "88 Harbor Industrial Road, Ningbo, Zhejiang, China", size=7)
-            draw_text(pdf, 320, y - 5, "CERTIFICATE NO.", size=6.8, bold=True)
-            draw_text(pdf, 420, y - 5, certificate, size=8, bold=True)
-            draw_text(
-                pdf, 44, y - 61, "2. PRODUCER'S NAME AND ADDRESS 5. REMARKS", size=6.8, bold=True
-            )
-            draw_text(pdf, 44, y - 77, "SAME AS EXPORTER -", size=7)
-            y -= 100
-            box(pdf, 34, y - 50, width - 68, 62, fill=colors.HexColor("#FFFDF2"))
-            draw_text(
-                pdf,
-                44,
-                y - 5,
-                "3. IMPORTER'S NAME, ADDRESS AND COUNTRY 4. MEANS OF TRANSPORT AND ROUTE",
-                size=6.8,
-                bold=True,
-            )
-            draw_text(pdf, 44, y - 24, "FALABELLA RETAIL S.A. Departure date: 2026-08-28", size=8)
-            draw_text(
-                pdf, 44, y - 41, "Ocean freight from Shanghai, China to Valparaiso, Chile", size=7
-            )
-            y -= 66
-
-        box(pdf, 34, y - 24, width - 68, 24, fill=colors.HexColor("#D9D0A8"))
-        draw_text(
-            pdf,
-            39,
-            y - 16,
-            "6. ITEM / 7. PACKAGES AND GOODS / 9. HS / 10. ORIGIN / 11. GROSS KG / 12. INVOICE",
-            size=6.2,
-            bold=True,
+    items = tuple(
+        OriginItemData(
+            marks=container,
+            packages=f"{item['cartons']} CARTONS",
+            description=item["description"],
+            hs_code=item["hs_code"],
+            origin_criterion="WO",
+            net_weight_or_quantity=item["net"],
+            unit="KGS",
+            invoice_number=item["number"],
+            invoice_date="2026-08-20",
         )
-        y -= 42
-        start_number = 1 if page_no == 1 else 21
-        for item_no, item in enumerate(page_items, start=start_number):
-            box(pdf, 34, y - 8, width - 68, 20, fill=colors.HexColor("#FFFDF2"))
-            row = (
-                f"{item_no} {container} {item['cartons']} CARTONS {item['hs_code']} WO "
-                f"{item['gross']:,.1f} {item['number']}"
-            )
-            draw_text(pdf, 40, y, row, size=6.4)
-            y -= 21
-
-        if page_no == 2:
-            box(pdf, 34, 74, width - 68, 100, fill=colors.HexColor("#FFFDF2"))
-            draw_text(
-                pdf,
-                44,
-                151,
-                "MADE IN CHINA - synthetic merchandise for automation testing",
-                size=7.5,
-            )
-            draw_text(pdf, 44, 132, "Place and date: NINGBO / SHENZHEN, 2026-08-24", size=7.5)
-            draw_text(pdf, 44, 113, "Place and date: 2026-08-24", size=7.5)
-            draw_text(
-                pdf,
-                44,
-                91,
-                "Exporter declaration and issuing-authority certification",
-                size=7,
-                color=MUTED,
-            )
-            draw_origin_stamp(pdf, width - 108, 122)
-        synthetic_footer(pdf, width, "SAMPLE FORM F CERTIFICATE")
-        if page_no == 1:
-            pdf.showPage()
-    pdf.save()
+        for item in invoices
+    )
+    render_origin_certificate(
+        path,
+        OriginCertificateData(
+            certificate_number="C26CL0124001",
+            exporter_name="NINGBO HOMEWARE MANUFACTURING CO., LTD.",
+            exporter_address="88 Harbor Industrial Road, Ningbo, Zhejiang, CHINA",
+            producer="SAME",
+            consignee_name="FALABELLA RETAIL S.A.",
+            consignee_address="Rosario Norte 660, Las Condes, Santiago, CHILE",
+            issued_in="CHINA",
+            departure_date="2026-08-28",
+            transport_number="OCEAN PACIFIC V.2628E",
+            port_of_loading="SHANGHAI, CHINA",
+            port_of_discharge="VALPARAISO, CHILE",
+            remarks="Purchase order PO-26-0817.",
+            issue_place="NINGBO",
+            issue_date="2026-08-24",
+            issuing_authority="China Council for the Promotion of International Trade, Ningbo",
+            items=items,
+            dispatch_reference="Dispatch 700613 / Ref 54415CLFA/26J28-9",
+        ),
+    )
 
 
-def build_fixture() -> dict:
-    dispatch = "700613"
-    reference = "54415CLFA/26J28-9"
-    bl = "OLS-SHA-2602288"
-    container = "OLSU6622881"
-    freight = Decimal("9850.00")
+def _volume_invoice_data() -> list[dict]:
     products = [
         ("Cotton bath towels assorted", "6302.60", Decimal("5.00")),
         ("Ceramic tableware set", "6912.00", Decimal("25.00")),
@@ -686,21 +603,40 @@ def build_fixture() -> dict:
         cartons = 35 + index
         gross = Decimal(cartons) * Decimal("12.5")
         net = gross - Decimal(cartons) * Decimal("1.25")
-        invoice = {
-            "number": f"BN260106{index:02d}",
-            "description": description,
-            "hs_code": hs_code,
-            "unit_price": unit_price,
-            "quantity": quantity,
-            "total": total,
-            "cartons": cartons,
-            "gross": gross,
-            "net": net,
-            "first_carton": first_carton,
-            "last_carton": first_carton + cartons - 1,
-        }
-        invoices.append(invoice)
+        invoices.append(
+            {
+                "number": f"BN260106{index:02d}",
+                "description": description,
+                "hs_code": hs_code,
+                "unit_price": unit_price,
+                "quantity": quantity,
+                "total": total,
+                "cartons": cartons,
+                "gross": gross,
+                "net": net,
+                "first_carton": first_carton,
+                "last_carton": first_carton + cartons - 1,
+            }
+        )
         first_carton += cartons
+    return invoices
+
+
+def regenerate_origin_certificate() -> None:
+    write_origin(
+        TARGET / "05_CERTIFICATE_OF_ORIGIN_C26CL0124001.pdf",
+        _volume_invoice_data(),
+        "OLSU6622881",
+    )
+
+
+def build_fixture() -> dict:
+    dispatch = "700613"
+    reference = "54415CLFA/26J28-9"
+    bl = "OLS-SHA-2602288"
+    container = "OLSU6622881"
+    freight = Decimal("9850.00")
+    invoices = _volume_invoice_data()
 
     total_fob = sum((item["total"] for item in invoices), Decimal("0"))
     total_cartons = sum(item["cartons"] for item in invoices)
@@ -779,6 +715,9 @@ def build_fixture() -> dict:
         "sum_insured_usd": str(insured),
         "total_cartons": total_cartons,
         "gross_weight_kg": str(total_gross),
+        "origin_certificate_format": "China-Chile FTA reference form, front plus overleaf",
+        "origin_certificate_page_size_mm": "216x330",
+        "origin_certificate_items": len(invoices),
         "expected_rule_failures": 0,
     }
     (TARGET / "manifest.json").write_text(

@@ -458,8 +458,9 @@ currency, invoice_total, **lines** of description/hs_code/quantity/uom/unit_pric
 package_count, gross_weight_kg, net_weight_kg), `PackingList`, `InsuranceCertificate`
 (certificate_number, insurer, assured_name, bl_number, sum_insured, premium, premium_rate,
 currency, coverage_basis, invoices_covered), `CertificateOfOrigin` (certificate_number,
-issuing_authority, issue_date, exporter_name, importer_name, agreement_name, departure_date,
-**is_retrospective: bool**, items of hs_code/description/gross_weight_kg/invoice_number),
+issuing_authority, issue_date, exporter_name, consignee_name, agreement_name, departure_date,
+**is_retrospective: bool**, items of hs_code/description/origin_criterion/
+net_weight_or_quantity/weight_or_quantity_unit/invoice_number/invoice_date),
 `DispatchInstruction`.
 
 ### Extraction prompt rules — put these verbatim in every extraction prompt

@@ -14,6 +14,14 @@ from app.engine.reconcile import reconcile
 
 def _state(scenario_b, chile_cfg, falabella_cfg, demo_fx):
     result = reconcile(scenario_b, chile_cfg, falabella_cfg, *demo_fx)
+    extracted = [
+        scenario_b.instruction,
+        scenario_b.bill_of_lading,
+        *scenario_b.invoices,
+        scenario_b.packing_list,
+        scenario_b.insurance,
+        scenario_b.certificate_of_origin,
+    ]
     return {
         "dispatch": {
             "despacho_no": "700612",
@@ -24,7 +32,14 @@ def _state(scenario_b, chile_cfg, falabella_cfg, demo_fx):
             "client_config_hash": "e" * 64,
             "din_acceptance_date": "2026-08-18",
         },
-        "documents": [],
+        "documents": [
+            {
+                "doc_type": document.doc_type.value,
+                "extraction": document.model_dump(mode="json"),
+            }
+            for document in extracted
+            if document is not None
+        ],
         "processing": {
             "mode": "local",
             "label": "Extracción local determinista — demo",
@@ -105,8 +120,16 @@ def test_din_pdf_is_readable_and_watermarked(scenario_b, chile_cfg, falabella_cf
         text = "\n".join(page.extract_text() or "" for page in pdf.pages)
         assert len(pdf.pages) == 3
     assert WATERMARK in text
-    assert "13,719.25" not in text  # Report uses exact unlocalized value.
-    assert "2539.02" in text
+    assert "13,719.25" not in text
+    assert "2.539,02" in text
+    assert "DECLARACIÓN DE INGRESO" in text
+    assert "IDENTIFICACIÓN" in text
+    assert "ORIGEN, TRANSPORTE Y ALMACENAJE" in text
+    assert "ANTECEDENTES FINANCIEROS" in text
+    assert "DESCRIPCIÓN DE MERCANCÍAS" in text
+    assert "CUENTAS Y VALORES" in text
+    assert "FALABELLA RETAIL SpA" in text
+    assert "OLS-NGB-2601583" in text
 
 
 def test_din_json_is_one_declaration_per_invoice(scenario_b, chile_cfg, falabella_cfg, demo_fx):
@@ -118,6 +141,46 @@ def test_din_json_is_one_declaration_per_invoice(scenario_b, chile_cfg, falabell
     ]
     assert all(len(item["lines"]) == 1 for item in payload)
     assert payload[2]["declaration_view"]["total_payable"] == "2539.02"
+    assert payload[0]["form"]["importer_name"] == "FALABELLA RETAIL SpA"
+    assert payload[0]["form"]["bl_number"] == "OLS-NGB-2601583"
+    assert payload[0]["form"]["port_loading"] == "NINGBO, CHINA"
+    assert payload[0]["form"]["port_discharge"] == "VALPARAISO, CHILE"
+    assert payload[0]["form"]["origin_certificate"] == "C26CL0119043"
+    assert payload[0]["form"]["identification_number"] == "NO ASIGNADO"
+    assert payload[2]["form"]["levies"] == [
+        {
+            "code": "AD_VALOREM",
+            "label": "Derecho ad valorem",
+            "rate": "0.06",
+            "amount": "582.79",
+        },
+        {
+            "code": "IVA",
+            "label": "Impuesto al Valor Agregado",
+            "rate": "0.19",
+            "amount": "1956.23",
+        },
+    ]
+
+
+def test_din_adds_insumo_annex_for_additional_invoice_lines(
+    scenario_b, chile_cfg, falabella_cfg, demo_fx
+):
+    state = _state(scenario_b, chile_cfg, falabella_cfg, demo_fx)
+    extra_line = deepcopy(state["calculation"]["lines"][0])
+    extra_line["description"] = "Additional invoice item"
+    state["calculation"]["lines"].insert(1, extra_line)
+
+    payload = din_payload(state)
+    content = render_din_pdf(state)
+
+    assert payload[0]["form"]["total_items"] == 2
+    assert payload[0]["form"]["annex_pages"] == 1
+    with pdfplumber.open(io.BytesIO(content)) as pdf:
+        assert len(pdf.pages) == 4
+        annex_text = pdf.pages[1].extract_text() or ""
+    assert "HOJA DE INSUMOS" in annex_text
+    assert "Additional invoice item" in annex_text
 
 
 def test_exports_support_100_invoices_without_generation_pagination(

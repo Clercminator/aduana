@@ -13,5 +13,8 @@
   "sum_insured_usd": "576230.50",
   "total_cartons": 2220,
   "gross_weight_kg": "27750.0",
+  "origin_certificate_format": "China-Chile FTA reference form, front plus overleaf",
+  "origin_certificate_page_size_mm": "216x330",
+  "origin_certificate_items": 40,
   "expected_rule_failures": 0
 }

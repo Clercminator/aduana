@@ -6,6 +6,11 @@ import json
 from decimal import ROUND_HALF_UP, Decimal
 from pathlib import Path
 
+from origin_certificate_fixture import (
+    OriginCertificateData,
+    OriginItemData,
+    render_origin_certificate,
+)
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4, landscape
 from reportlab.pdfgen import canvas
@@ -44,7 +49,7 @@ def write_pdf(path: Path, title: str, lines: list[str], *, landscape_page: bool 
     pdf.save()
 
 
-def regenerate_bl_and_insurance() -> None:
+def regenerate_bl_and_insurance(*, origin_only: bool = False) -> None:
     scenarios = [
         {
             "folder": "scenario_A_clean",
@@ -53,6 +58,9 @@ def regenerate_bl_and_insurance() -> None:
             "bl": "OLS-SHA-2601147",
             "booking": "BK2601147",
             "supplier": "NINGBO HOMEWARE MANUFACTURING CO., LTD.",
+            "supplier_address": (
+                "No. 288 Jiangnan Road, Yinzhou District, Ningbo 315100, Zhejiang, P.R. CHINA"
+            ),
             "vessel": "OCEAN PIONEER V.2614E",
             "port": "SHANGHAI",
             "etd": "2026-06-14",
@@ -66,6 +74,35 @@ def regenerate_bl_and_insurance() -> None:
             "invoices": ["BN26010441", "BN26010442", "BN26010443"],
             "certificate": "MC-2026-04417",
             "sum_insured": Decimal("66930.00"),
+            "origin_certificate": "C26CL0114772",
+            "origin_issue_date": "2026-06-11",
+            "origin_issue_place": "NINGBO",
+            "origin_items": [
+                (
+                    "300 CARTONS",
+                    "100% Cotton Bath Towels 70x140cm, 450 GSM, assorted colours",
+                    "6302.60",
+                    "4680.0",
+                    "BN26010441",
+                    "2026-06-08",
+                ),
+                (
+                    "400 CARTONS",
+                    "Ceramic Dinner Set 16-piece, glazed stoneware, white",
+                    "6912.00",
+                    "6820.0",
+                    "BN26010442",
+                    "2026-06-08",
+                ),
+                (
+                    "262 CARTONS",
+                    "Glass Storage Jar 1.2L with bamboo lid",
+                    "7010.90",
+                    "2110.0",
+                    "BN26010443",
+                    "2026-06-09",
+                ),
+            ],
         },
         {
             "folder": "scenario_B_exceptions",
@@ -74,6 +111,10 @@ def regenerate_bl_and_insurance() -> None:
             "bl": "OLS-NGB-2601583",
             "booking": "BK2601583",
             "supplier": "SHENZHEN BRIGHTPATH ELECTRONICS CO., LTD.",
+            "supplier_address": (
+                "Building C7, Hongfa Industrial Park, Bao'an District, Shenzhen 518101, "
+                "Guangdong, P.R. CHINA"
+            ),
             "vessel": "OCEAN MERIDIAN V.2619E",
             "port": "NINGBO",
             "etd": "2026-07-14",
@@ -88,6 +129,27 @@ def regenerate_bl_and_insurance() -> None:
             "insured_invoices": ["BN26010512", "BN26010513", "BN26010514"],
             "certificate": "MC-2026-05108",
             "sum_insured": Decimal("68000.00"),
+            "origin_certificate": "C26CL0119043",
+            "origin_issue_date": "2026-07-28",
+            "origin_issue_place": "SHENZHEN",
+            "origin_items": [
+                (
+                    "275 CARTONS",
+                    "LED Desk Lamp 8W, dimmable, aluminium body, model BP-DL80",
+                    "9405.20",
+                    "3135.0",
+                    "BN26010512",
+                    "2026-07-09",
+                ),
+                (
+                    "325 CARTONS",
+                    "Bluetooth Portable Speaker 20W, IPX5, model BP-SP20",
+                    "8518.22",
+                    "4160.0",
+                    "BN26010513",
+                    "2026-07-09",
+                ),
+            ],
         },
     ]
     for item in scenarios:
@@ -116,12 +178,13 @@ def regenerate_bl_and_insurance() -> None:
             f"TOTAL DECLARED VALUE THIS B/L USD {money(item['declared'])}",
             f"Dispatch {item['dispatch']} / Ref {item['reference']}",
         ]
-        write_pdf(
-            target / f"01_BILL_OF_LADING_{item['bl']}.pdf",
-            "BILL OF LADING",
-            bl_lines,
-            landscape_page=True,
-        )
+        if not origin_only:
+            write_pdf(
+                target / f"01_BILL_OF_LADING_{item['bl']}.pdf",
+                "BILL OF LADING",
+                bl_lines,
+                landscape_page=True,
+            )
         insured_invoices = item.get("insured_invoices", item["invoices"])
         premium = item["sum_insured"] * Decimal("0.000462")
         insurance_lines = [
@@ -139,11 +202,108 @@ def regenerate_bl_and_insurance() -> None:
             f"Prima USD {money(premium)}",
             "Póliza anual vigente para 2026; la prima impresa no alimenta el cálculo aduanero.",
         ]
-        write_pdf(
-            target / f"04_CERTIFICADO_SEGURO_{item['certificate']}.pdf",
-            "CERTIFICADO DE SEGURO",
-            insurance_lines,
+        if not origin_only:
+            write_pdf(
+                target / f"04_CERTIFICADO_SEGURO_{item['certificate']}.pdf",
+                "CERTIFICADO DE SEGURO",
+                insurance_lines,
+            )
+        origin_items = tuple(
+            OriginItemData(
+                marks=item["container"],
+                packages=packages,
+                description=description,
+                hs_code=hs_code,
+                origin_criterion="WO",
+                net_weight_or_quantity=Decimal(net_weight),
+                unit="KGS",
+                invoice_number=invoice_number,
+                invoice_date=invoice_date,
+            )
+            for packages, description, hs_code, net_weight, invoice_number, invoice_date in item[
+                "origin_items"
+            ]
         )
+        render_origin_certificate(
+            target / f"05_CERTIFICATE_OF_ORIGIN_{item['origin_certificate']}.pdf",
+            OriginCertificateData(
+                certificate_number=item["origin_certificate"],
+                exporter_name=item["supplier"],
+                exporter_address=item["supplier_address"],
+                producer="SAME",
+                consignee_name="FALABELLA RETAIL S.A.",
+                consignee_address=(
+                    "Av. Presidente Riesco 5017, Piso 17, Las Condes, Santiago, CHILE"
+                ),
+                issued_in="CHINA",
+                departure_date=item["etd"],
+                transport_number=item["vessel"],
+                port_of_loading=f"{item['port']}, CHINA",
+                port_of_discharge="VALPARAISO, CHILE",
+                remarks=f"Dispatch reference {item['reference']}.",
+                issue_place=item["origin_issue_place"],
+                issue_date=item["origin_issue_date"],
+                issuing_authority=(
+                    "China Council for the Promotion of International Trade, "
+                    f"{item['origin_issue_place'].title()}"
+                ),
+                items=origin_items,
+                dispatch_reference=f"Dispatch {item['dispatch']} / Ref {item['reference']}",
+            ),
+        )
+
+
+def regenerate_origin_certificates() -> None:
+    regenerate_bl_and_insurance(origin_only=True)
+
+
+def _render_cif_origin(
+    target: Path, dispatch: str, reference: str, invoice: str, container: str
+) -> None:
+    render_origin_certificate(
+        target / "05_CERTIFICATE_OF_ORIGIN_C26CL0125001.pdf",
+        OriginCertificateData(
+            certificate_number="C26CL0125001",
+            exporter_name="NINGBO CIF SUPPLIER CO., LTD.",
+            exporter_address="168 Export Avenue, Ningbo, Zhejiang, CHINA",
+            producer="SAME",
+            consignee_name="FALABELLA RETAIL S.A.",
+            consignee_address="Rosario Norte 660, Las Condes, Santiago, CHILE",
+            issued_in="CHINA",
+            departure_date="2026-09-02",
+            transport_number="OCEAN ATLAS V.2631E",
+            port_of_loading="SHANGHAI, CHINA",
+            port_of_discharge="VALPARAISO, CHILE",
+            remarks=f"Dispatch reference {reference}.",
+            issue_place="NINGBO",
+            issue_date="2026-09-02",
+            issuing_authority=("China Council for the Promotion of International Trade, Ningbo"),
+            items=(
+                OriginItemData(
+                    marks=container,
+                    packages="200 CARTONS",
+                    description="Kitchen appliance set",
+                    hs_code="8516.60",
+                    origin_criterion="WO",
+                    net_weight_or_quantity=Decimal("2750.0"),
+                    unit="KGS",
+                    invoice_number=invoice,
+                    invoice_date="2026-08-28",
+                ),
+            ),
+            dispatch_reference=f"Dispatch {dispatch} / Ref {reference}",
+        ),
+    )
+
+
+def regenerate_cif_origin() -> None:
+    _render_cif_origin(
+        ROOT / "fixtures" / "scenario_D_cif",
+        "700614",
+        "54415CLFA/26K02-4",
+        "BN26010701",
+        "OLSU7701401",
+    )
 
 
 def build_cif_scenario() -> None:
@@ -249,24 +409,7 @@ def build_cif_scenario() -> None:
             f"Prima USD {money(premium)}",
         ],
     )
-    write_pdf(
-        target / "05_CERTIFICATE_OF_ORIGIN_C26CL0125001.pdf",
-        "CERTIFICATE OF ORIGIN",
-        [
-            "CERTIFICATE OF ORIGIN",
-            "Form F - CHINA-CHILE FREE TRADE AGREEMENT",
-            "Issued in THE PEOPLE'S REPUBLIC OF CHINA",
-            "1. EXPORTER'S NAME, ADDRESS AND COUNTRY CERTIFICATE NO.",
-            "NINGBO CIF SUPPLIER CO., LTD. C26CL0125001",
-            "2. PRODUCER'S NAME AND ADDRESS 5. REMARKS",
-            "SAME AS EXPORTER -",
-            "3. IMPORTER'S NAME, ADDRESS AND COUNTRY 4. MEANS OF TRANSPORT AND ROUTE",
-            "FALABELLA RETAIL S.A. Departure date: 2026-09-02",
-            f"1 {container} 200 CARTONS 8516.60 WO 3,000.0 {invoice}",
-            "MADE IN CHINA - synthetic merchandise for automation testing",
-            "Place and date: 2026-09-02",
-        ],
-    )
+    _render_cif_origin(target, dispatch, reference, invoice, container)
     manifest = {
         "scenario": "D",
         "purpose": "CIF normalization equals an economically equivalent FOB invoice",
@@ -275,6 +418,8 @@ def build_cif_scenario() -> None:
         "included_insurance_usd": str(included_insurance),
         "expected_normalized_fob_usd": str(fob),
         "expected_policy_premium_usd": str(premium),
+        "origin_certificate_format": "China-Chile FTA reference form, front plus overleaf",
+        "origin_certificate_page_size_mm": "216x330",
     }
     (target / "manifest.json").write_text(
         json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"

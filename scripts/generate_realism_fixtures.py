@@ -3,8 +3,14 @@
 from __future__ import annotations
 
 import json
+from decimal import Decimal
 from pathlib import Path
 
+from origin_certificate_fixture import (
+    OriginCertificateData,
+    OriginItemData,
+    render_origin_certificate,
+)
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
@@ -171,33 +177,52 @@ def phone_photo_invoice(index: int, supplier: str) -> str:
 
 def origin_certificate(index: int) -> str:
     path = TARGET / f"origin_certificate_{index:02d}_stamped.pdf"
-    pdf = canvas.Canvas(str(path), pagesize=A4, pageCompression=1)
-    width, height = A4
-    pdf.setStrokeColor(colors.HexColor("#334e68"))
-    pdf.setLineWidth(2)
-    pdf.rect(24, 24, width - 48, height - 48, fill=0, stroke=1)
-    pdf.setFillColor(colors.HexColor("#08213f"))
-    pdf.setFont("Helvetica-Bold", 16)
-    pdf.drawCentredString(width / 2, height - 64, "CERTIFICATE OF ORIGIN / CERTIFICADO DE ORIGEN")
-    pdf.setFont("Helvetica", 9)
-    lines = [
-        f"Certificate No. REAL-COO-{index:02d}-2026",
-        f"Exporter: {SUPPLIERS[index - 1]}",
-        "Importer: FALABELLA RETAIL S.A.",
-        "Origin criterion: WO - synthetic training goods",
-        "Country of origin / País de origen: CHINA",
-        "This fixture intentionally mixes English and Spanish labels.",
-    ]
-    y = height - 112
-    for line in lines:
-        pdf.drawString(52, y, line)
-        y -= 24
-    stamp(pdf, width - 135, 182, -9 + index)
-    pdf.setFillColor(colors.HexColor("#c81e1e"))
-    pdf.setFont("Helvetica-Bold", 7)
-    pdf.drawString(36, 34, "SYNTHETIC FORMAT FIXTURE - NOT A REAL CERTIFICATE")
-    pdf.save()
+    criteria = (("WP", "RVC"), ("PSR", "WO"))[index - 1]
+    render_origin_certificate(
+        path,
+        OriginCertificateData(
+            certificate_number=f"REAL-COO-{index:02d}-2026",
+            exporter_name=SUPPLIERS[index - 1].upper(),
+            exporter_address=f"Synthetic industrial address {index}, Zhejiang, CHINA",
+            producer="AVAILABLE UPON REQUEST" if index == 1 else "SAME",
+            consignee_name="FALABELLA RETAIL S.A.",
+            consignee_address="Synthetic consignee address, Santiago, CHILE",
+            issued_in="CHINA",
+            departure_date=f"2026-09-{10 + index:02d}",
+            transport_number=f"SYNTHETIC VESSEL V.26{index:02d}",
+            port_of_loading="NINGBO, CHINA",
+            port_of_discharge="SAN ANTONIO, CHILE",
+            remarks=(
+                "ISSUED RETROACTIVELY - synthetic QA variant."
+                if index == 2
+                else "Third-country invoice operator: Synthetic Trading Pte. Ltd., Singapore."
+            ),
+            issue_place="NINGBO",
+            issue_date=f"2026-09-{12 + index:02d}",
+            issuing_authority="Synthetic authorised-body fixture",
+            items=tuple(
+                OriginItemData(
+                    marks=f"QA{index:02d}-{item_no:02d}",
+                    packages=f"{20 + item_no} CARTONS",
+                    description=f"Synthetic format-validation product {item_no}",
+                    hs_code=("6302.60", "9405.20")[item_no - 1],
+                    origin_criterion=criteria[item_no - 1],
+                    net_weight_or_quantity=Decimal(100 + index * 10 + item_no),
+                    unit="KGS",
+                    invoice_number=f"BN260109{index}{item_no}",
+                    invoice_date=f"2026-09-{8 + item_no:02d}",
+                )
+                for item_no in (1, 2)
+            ),
+            dispatch_reference="Scenario E document-format QA pack",
+        ),
+    )
     return path.name
+
+
+def regenerate_origin_certificates() -> list[str]:
+    TARGET.mkdir(parents=True, exist_ok=True)
+    return [origin_certificate(1), origin_certificate(2)]
 
 
 def main() -> None:
@@ -219,17 +244,20 @@ def main() -> None:
                 "image_only_phone_photo": index in {11, 12},
             }
         )
-    certificates = [origin_certificate(1), origin_certificate(2)]
+    certificates = regenerate_origin_certificates()
     manifest = {
         "purpose": "document-format and OCR-routing realism",
         "distinct_supplier_templates": len(SUPPLIERS),
         "invoices": files,
         "stamped_origin_certificates": certificates,
+        "origin_certificate_pages_each": 2,
+        "origin_criteria_covered": ["WO", "WP", "RVC", "PSR"],
         "image_only_phone_photos": 2,
         "notes": [
             "All identities and transactions are synthetic.",
             "Phone-photo PDFs contain no text layer and are expected to route to OCR.",
             "This pack exercises document diversity; it is not an extraction accuracy benchmark.",
+            "Origin certificates follow the supplied China-Chile FTA front-and-overleaf form.",
         ],
     }
     (TARGET / "manifest.json").write_text(

@@ -228,7 +228,7 @@ def rule_exc_06(bundle: DispatchBundle, cfg: JurisdictionConfig) -> RuleResult:
     if bundle.insurance:
         values.append(("seguro", bundle.insurance.assured_name.value))
     if bundle.certificate_of_origin:
-        values.append(("CoO", bundle.certificate_of_origin.importer_name.value))
+        values.append(("CoO", bundle.certificate_of_origin.consignee_name.value))
     if len(values) < 2:
         return _skip("EXC-06", Severity.WARNING, title, ["dos documentos con consignatario"])
     distinct = {normalized_text(value) for _, value in values if value}

@@ -171,8 +171,25 @@ class InsuranceCertificate(BaseModel):
 class OriginItem(BaseModel):
     hs_code: Cited[str]
     description: Cited[str]
-    gross_weight_kg: Cited[Decimal]
+    origin_criterion: Cited[str] = Field(default_factory=Cited)
+    net_weight_or_quantity: Cited[Decimal]
+    weight_or_quantity_unit: Cited[str] = Field(default_factory=Cited)
     invoice_number: Cited[str]
+    invoice_date: Cited[date] = Field(default_factory=Cited)
+
+    @model_validator(mode="before")
+    @classmethod
+    def accept_legacy_gross_weight(cls, data: Any) -> Any:
+        if isinstance(data, dict) and "net_weight_or_quantity" not in data:
+            legacy = data.get("gross_weight_kg")
+            if legacy is not None:
+                data = dict(data)
+                data["net_weight_or_quantity"] = legacy
+                data.setdefault(
+                    "weight_or_quantity_unit",
+                    Cited(value="KGS", provenance=Provenance.INFERRED).model_dump(),
+                )
+        return data
 
 
 class CertificateOfOrigin(BaseModel):
@@ -180,12 +197,21 @@ class CertificateOfOrigin(BaseModel):
     certificate_number: Cited[str]
     issue_date: Cited[date]
     exporter_name: Cited[str]
-    importer_name: Cited[str]
+    issuing_authority: Cited[str] = Field(default_factory=Cited)
+    consignee_name: Cited[str]
     agreement_name: Cited[str]
     departure_date: Cited[date]
     is_retrospective: Cited[bool]
     container_number: Cited[str]
     items: list[OriginItem]
+
+    @model_validator(mode="before")
+    @classmethod
+    def accept_legacy_importer_name(cls, data: Any) -> Any:
+        if isinstance(data, dict) and "consignee_name" not in data and "importer_name" in data:
+            data = dict(data)
+            data["consignee_name"] = data["importer_name"]
+        return data
 
 
 ExtractedDocument = (

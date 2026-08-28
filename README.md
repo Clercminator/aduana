@@ -28,7 +28,7 @@ documentan explícitamente más abajo.
 
 ## Estado
 
-**Al 26 de agosto de 2026:** demo funcional para Chile, ejecutable localmente con Docker y
+**Al 28 de agosto de 2026:** demo funcional para Chile, ejecutable localmente con Docker y
 validada contra fixtures sintéticos. **No está lista para producción ni para presentar una
 DIN.** El código está en `https://github.com/Clercminator/aduana`; publicar en GitHub no
 equivale a desplegar. Antes de compartir el enlace, confirme con `git status -sb` que los
@@ -65,7 +65,7 @@ sintéticas. **Validado** no significa validación legal ni aduanera sobre casos
 | Cálculos | **Implementados en código determinista** | FOB, flete, seguro, valor aduanero, preferencia, tributos, FX y costo puesto usan `Decimal` y configuración versionada; el modelo no calcula dinero. |
 | Revisión humana | **Implementada parcialmente** | Corrección de campos con motivo, procedencia manual y recálculo. No existe todavía aprobación autenticada por rol ni una UI para aprobar una clasificación de baja confianza. |
 | Excel | **Implementado para la plantilla incluida** | Completa `PRORRATEO MASTER.xlsx`, conserva las dos hojas operativas, añade nueve hojas de evidencia/auditoría y admite hasta 100 facturas. |
-| DIN | **Solo borrador de revisión** | JSON y PDF, una por factura. No es el formulario oficial y no transmite ni presenta información ante Aduanas. |
+| DIN | **Borrador estructurado de revisión** | JSON y PDF en formato oficio, una por factura, con hoja principal inspirada en la DIN chilena y hojas de insumos para ítems adicionales. No es el formulario oficial y no transmite ni presenta información ante Aduanas. |
 | Multiagencia | **Seam de datos demostrable** | Dos organizaciones, perfiles y storage separados. `X-Org-ID` no autentica al usuario; no es aislamiento SaaS suficiente. |
 | Operación | **Local/Docker** | PostgreSQL, API, worker y frontend con preflight y E2E. No hay despliegue productivo, SLO, backup administrado ni recuperación automática de trabajos atascados. |
 
@@ -171,9 +171,10 @@ cronológico de los cambios está separado en [`CHANGELOG.md`](CHANGELOG.md).
   visor PDF, citas, edición de campos con motivo obligatorio, recálculo, excepciones,
   aceptación de riesgo con justificación y trazabilidad.
 - **Salidas:** Excel basado en `PRORRATEO MASTER.xlsx`, con vistas declaración/costo, y una
-  DIN provisional JSON/PDF por factura. Los
-  artefactos guardan hashes de contenido/configuración y los documentos fiscales llevan una
-  advertencia explícita de demo.
+  DIN provisional JSON/PDF por factura. El PDF usa la estructura de la hoja principal
+  chilena, completa solo datos respaldados por documentos/cálculos y agrega hojas de insumos
+  cuando una factura tiene más de un ítem. Los artefactos guardan hashes de
+  contenido/configuración y los documentos fiscales llevan una advertencia explícita de demo.
 - **Interfaz:** React 19, TypeScript, Vite, `react-pdf`, selector y tema por agencia, vista
   responsive, ayuda para la demo, progreso con porcentaje/tiempo, errores de carga visibles,
   aviso persistente de entorno de demostración y el logo oficial IMR derivado de
@@ -263,7 +264,7 @@ trabajos, cálculos, excepciones, eventos de auditoría y artefactos generados.
 | `GET /api/documents/{id}/file` | Servir el PDF guardado. |
 | `GET /api/dispatches/{id}/exports/reconciliation.xlsx` | Descargar Excel de conciliación. |
 | `GET /api/dispatches/{id}/exports/din.json` | Descargar DIN provisional estructurada. |
-| `GET /api/dispatches/{id}/exports/din.pdf` | Descargar resumen DIN provisional. |
+| `GET /api/dispatches/{id}/exports/din.pdf` | Descargar formulario DIN provisional con hoja principal e insumos. |
 
 Salvo healthcheck y catálogo, las rutas exigen `X-Org-ID`. Los enlaces de PDF/exportación
 usan `org_id` porque el navegador no puede adjuntar un encabezado al abrirlos. Si ambos se
@@ -463,8 +464,9 @@ agencia y jurisdicción, (5) evaluación y escala, y recién después (6) billin
 - Sustituir la fila mensual ficticia por el ingreso/fuente productiva del dólar aduanero.
 - Confirmar la base `coverage_pct: 1.15` y obtener la tasa de seguro teórico antes de habilitar
   ese modo. Ambas incertidumbres permanecen explícitas en configuración/answer key.
-- Completar y validar el mapeo DIN. El PDF actual es un resumen de revisión, no un formulario
-  oficial y no existe presentación, pago ni transmisión a Aduanas.
+- Completar y validar con un experto el mapeo DIN. El PDF actual reproduce la estructura de
+  la hoja principal y genera hojas de insumos, pero no es el formulario oficial: faltan datos
+  operativos/códigos obligatorios y no existe presentación, pago ni transmisión a Aduanas.
 - Diseñar despliegue productivo, HTTPS, dominios, observabilidad, alertas, backups y plan de
   recuperación. Hoy está probada la ejecución local por Docker, no un entorno productivo.
 - Proteger `main` exigiendo la CI ya incluida, y establecer versionado semántico, releases
@@ -856,20 +858,21 @@ documentos reales hasta aprobar privacidad, retención y condiciones del proveed
 
 ### Última verificación conocida
 
-Ejecutada el **26 de agosto de 2026** después de completar y volver a auditar los gates de
-extracción, el enrutamiento híbrido y la reutilización de OCR:
+Ejecutada el **28 de agosto de 2026** después de implementar y revisar visualmente los nuevos
+formatos DIN y CO, además de conservar los gates de extracción, el enrutamiento híbrido y la
+reutilización de OCR:
 
 | Comprobación | Resultado |
 |---|---|
-| `python -m pytest -q` | **PASS — 64 pruebas**. Además de dominio/finanzas, cubre gates duros, bloqueo de exportación, selección de plantillas, cierre seguro del fallback sin clave, reutilización de anotaciones OCR, las dos etiquetas en Excel, perfiles/escenarios por agencia, pertenencia organizacional, reset seguro y rechazo de entradas inválidas. |
+| `python -m pytest -q` | **PASS — 71 pruebas**. Además de dominio/finanzas y gates duros, cubre el mapeo documental del DIN; el formulario CO de dos páginas; sus 50 ítems máximos; criterios `WO`, `WP`, `RVC`, `PSR`; peso neto/cantidad; facturas/fechas; compatibilidad con payloads anteriores; y la anotación retrospectiva limitada al anverso. |
 | `ruff format --check app tests scripts migrations` | **PASS — formato consistente**. |
 | `ruff check app tests migrations scripts` | **PASS — sin hallazgos**. |
 | `npm run lint` | **PASS**. |
 | `npm run build` | **PASS — 1.849 módulos transformados**. |
 | Playwright de paginación | **PASS** en Chromium, 1536×1024 y 390×844 con API simulada: 40 DIN únicas aunque existan 41 líneas, página 2 correcta y sin errores de consola. |
-| Render PDF | **PASS** por inspección con `pypdfium2`: Scenario C generó 40 páginas; primera y última DIN legibles, completas y con advertencia de borrador. |
+| Render PDF | **PASS** por inspección visual: las DIN de Scenario B y los seis CO A-E son legibles y no presentan recortes ni solapamientos; Scenario C conserva sus 40 líneas en el anverso del CO y las instrucciones aparecen al reverso. |
 | `docker compose ... config --quiet` | **PASS** para la pila normal y el override E2E; perfiles y volúmenes compartidos están montados en API/worker. |
-| `npm run test:e2e` completo | **PASS — 7 recorridos en 19,8 s**. Incluye Scenario C, expediente incompleto, 40 DIN paginadas, guard UI/API de fixtures, bloqueo cruzado, archivo no PDF y recuperación de estado local obsoleto. |
+| `npm run test:e2e` completo | **PASS — 7 recorridos en 21,4 s**. Incluye Scenario C con el nuevo CO, expediente incompleto, 40 DIN paginadas, guard UI/API de fixtures, bloqueo cruzado, archivo no PDF y recuperación de estado local obsoleto. |
 | Scenario C y Excel | **PASS** — 45/45 documentos, 40 líneas financieras y gate aprobado; las hojas `Resumen` y `Trazabilidad` registran `Extracción local determinista — demo`. |
 | Gate negativo | **PASS** — un expediente escaneado no reconocido terminó en `needs_review`, sin cálculo, y el endpoint Excel respondió HTTP 409. |
 | Dependencias | **PASS** — `pip check` sin dependencias rotas y `npm audit` con 0 vulnerabilidades. |
@@ -934,13 +937,21 @@ Cuatro despachos sintéticos de importación Chile–China para el mismo importa
 
 `scenario_E_document_realism/` no es un despacho coherente: es un pack separado de **14
 PDFs** —12 facturas con layouts/proveedores distintos y dos certificados de origen con
-sello— para QA documental. Dos de las doce facturas son fotos sin capa de texto.
+sello sintético— para QA documental. Los CO cubren entre ambos los criterios `WO`, `WP`,
+`RVC` y `PSR`; dos de las doce facturas son fotos sin capa de texto.
 
 El escenario C sí es un despacho coherente y sus 45 PDFs usan maquetación de documentos de
 comercio exterior: factura tabulada con datos de comprador y embarque, packing list de dos
 páginas, B/L con casillas de expedidor/consignatario/ruta, certificado de seguro con bloque de
-cobertura y certificado de origen Form F con tabla y sello sintético. Se inspiran en formatos
-habituales, pero no copian marcas ni pretenden sustituir documentos oficiales.
+cobertura y certificado de origen de dos páginas basado en el formulario China-Chile FTA de
+febrero de 2019 facilitado por la agencia. El CO usa tamaño oficio de 216 x 330 mm, reproduce
+las casillas 1-14, conserva las 40 líneas del escenario C en el anverso e incluye las
+instrucciones al reverso. No copia marcas ni pretende sustituir un documento oficial vigente.
+
+El modelo del CO distingue consignatario, autoridad emisora, criterio de origen, peso neto o
+cantidad con unidad, número de factura y fecha por línea. Los seis CO sintéticos de los
+escenarios A-E llevan aviso rojo, timbre de prueba y pie que prohíbe su uso aduanero o
+comercial.
 
 Cada documento lleva una advertencia que lo identifica como sintético. Ninguno corresponde a
 un embarque real.
@@ -1206,7 +1217,9 @@ por un estado operativo normal cuando, como mínimo:
 1. Un experto aduanero chileno haya validado por escrito valoración, preferencias, tasas,
    tolerancias, redondeos y los doce controles contra casos reales anonimizados.
 2. El mapeo incluya todos los campos, códigos, formatos y validaciones obligatorios de la DIN
-   aplicable; el PDF actual es un resumen de revisión, no un formulario oficial.
+   aplicable. El PDF actual reproduce su estructura para revisión, pero no es el formulario
+   oficial: RUT, identificadores/códigos oficiales, manifiesto, almacenaje, inspección, pago
+   diferido y firmas permanecen sin fuente operativa.
 3. El dólar aduanero mensual provenga de la fuente operativa aprobada y esté fijado al mes de
    aceptación de la DIN, no a la fila ficticia del demo.
 4. La extracción haya superado una evaluación acordada sobre documentos reales escaneados y
